@@ -8,6 +8,7 @@
 #endif
 
 #include "pii.h"
+#include "usb_link.h"
 #include <sys/types.h>
 #include <fcntl.h>
 #include <string.h>
@@ -15,6 +16,8 @@
 #include <random>
 #include <thread>
 #include <iostream>
+#include <tuple>
+
 #ifdef _WIN64
 	#define _CRT_SECURE_NO_WARNINGS
 	#define DELTA_EPOCH_IN_MICROSECS 11644473600000000Ui64
@@ -561,6 +564,25 @@ uint64_t pii_unlink(const char *path)
 	return unlink(path);
 }
 
+USB_Link_Monitor usb_monitor;
+
+uint64_t pii_start_usb(lk_msg *buffer)
+{
+	if (!usb_monitor.m_running) usb_monitor.start_thread();
+	usb_monitor.add_buffer(buffer);
+	return 0;
+}
+
+uint64_t pii_stop_usb(lk_msg *buffer)
+{
+	if (!usb_monitor.sub_buffer(buffer) && usb_monitor.m_running)
+	{
+		usb_monitor.stop_thread();
+		usb_monitor.join_thread();
+	}
+	return 0;
+}
+
 static void (*host_os_funcs[]) = {
 (void*)exit,
 (void*)pii_stat,
@@ -581,6 +603,8 @@ static void (*host_os_funcs[]) = {
 (void*)pii_seek,
 (void*)pii_random,
 (void*)pii_sleep,
+(void*)pii_start_usb,
+(void*)pii_stop_usb,
 };
 
 #ifdef _GUI

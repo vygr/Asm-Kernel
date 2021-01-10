@@ -194,6 +194,16 @@ Usage: unique [options] [line] ...
 	then will read lines from stdin.
 
 ```
+## usb
+ 
+```lisp
+Usage: usb [options]
+	options:
+		-h --help: this help info.
+		-c --count num: default 1.
+	Start USB link driver/s.
+
+```
 ## wc
  
 ```lisp
