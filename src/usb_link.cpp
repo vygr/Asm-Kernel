@@ -64,19 +64,22 @@ void USB_Link_Monitor::run()
 	while (m_running)
 	{
 		//associate any free buffers with link cables
-		std::lock_guard<std::mutex> lock(m_mutex);
-		for (auto &itr : m_buffer_map)
 		{
-			if (!itr.second)
+			//hold lock just for this scope
+			std::lock_guard<std::mutex> lock(m_mutex);
+			for (auto &itr : m_buffer_map)
 			{
-				auto usb_link = claim_usb_link(itr.first);
-				if (usb_link)
+				if (!itr.second)
 				{
-					m_usb_links.emplace_back(std::move(usb_link));
-					itr.second = m_usb_links.back().get();
-					itr.second->start_thread();
-				}
-			}			
+					auto usb_link = claim_usb_link(itr.first);
+					if (usb_link)
+					{
+						m_usb_links.emplace_back(std::move(usb_link));
+						itr.second = m_usb_links.back().get();
+						itr.second->start_thread();
+					}
+				}			
+			}
 		}
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(USB_POLLING_TIMEOUT));
