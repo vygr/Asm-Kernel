@@ -2,21 +2,6 @@
 #include <algorithm>
 #include <iostream>
 
-uint32_t jenkins_hash(uint8_t *key, size_t len)
-{
-	uint32_t hash, i;
-	for(hash = i = 0; i < len; ++i)
-	{
-		hash += key[i];
-		hash += (hash << 10);
-		hash ^= (hash >> 6);
-	}
-	hash += (hash << 3);
-	hash ^= (hash >> 11);
-	hash += (hash << 15);
-	return hash;
-}
-
 std::unique_ptr<USB_Link> claim_usb_link(lk_msg *buffer)
 {
 	libusb_device **devices;
@@ -108,17 +93,13 @@ size_t USB_Link_Monitor::sub_buffer(lk_msg *buffer)
 
 bool USB_Link::send(lk_msg *msg)
 {
-	//calculate the hash value
-	auto len = msg->m_stamp.m_frag_length == 0xffffffff ? 0 : msg->m_stamp.m_frag_length;
-	msg->m_hash = jenkins_hash((uint8_t*)&msg->m_peer_node_id, offsetof(lk_msg, m_data) - offsetof(lk_msg, m_peer_node_id) + len);
-
 	//send the buffer
 	auto error = 0;
 	auto bytes_sent = 0;
-	len = offsetof(lk_msg, m_data) - offsetof(lk_msg, m_hash) + len;
+	auto len = offsetof(lk_msg, m_data) - offsetof(lk_msg, m_task_count) + msg->m_stamp.m_frag_length == 0xffffffff ? 0 : msg->m_stamp.m_frag_length;
 	do
 	{
-		error = libusb_bulk_transfer(m_usb_dev_handle, LIBUSB_ENDPOINT_OUT | m_usb_dev_info.m_bulk_out_addr, (uint8_t*)&msg->m_hash, len, &bytes_sent, USB_TRANSFER_TIMEOUT);
+		error = libusb_bulk_transfer(m_usb_dev_handle, LIBUSB_ENDPOINT_OUT | m_usb_dev_info.m_bulk_out_addr, (uint8_t*)&msg->m_task_count, len, &bytes_sent, USB_TRANSFER_TIMEOUT);
 	} while (error != LIBUSB_SUCCESS && m_running);
 	return error == LIBUSB_SUCCESS ? true : false;
 }
@@ -130,18 +111,13 @@ bool USB_Link::receive(lk_msg *msg)
 	auto len = 0;
 	do
 	{
-		error = libusb_bulk_transfer(m_usb_dev_handle, LIBUSB_ENDPOINT_IN | m_usb_dev_info.m_bulk_in_addr, (uint8_t*)&msg->m_hash,
-				sizeof(lk_msg) - offsetof(lk_msg, m_hash), &len, USB_TRANSFER_TIMEOUT);
+		error = libusb_bulk_transfer(m_usb_dev_handle, LIBUSB_ENDPOINT_IN | m_usb_dev_info.m_bulk_in_addr, (uint8_t*)&msg->m_task_count,
+				sizeof(lk_msg) - offsetof(lk_msg, m_task_count), &len, USB_TRANSFER_TIMEOUT);
 	} while (error != LIBUSB_SUCCESS && m_running);
 	if (error != LIBUSB_SUCCESS)
 	{
 		std::cout << "Error, libusb!" << std::endl;
 		return false;
 	}
-
-	//test the hash value
-	auto hash = jenkins_hash((uint8_t*)&msg->m_peer_node_id, len - sizeof(msg->m_hash));
-	if (hash == msg->m_hash) return true;
-	std::cout << "Error, msg hash!" << std::endl;
-	return false;
+	return true;
 }
