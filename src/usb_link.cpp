@@ -96,7 +96,7 @@ bool USB_Link::send(lk_msg *msg)
 	//send the buffer
 	auto error = 0;
 	auto bytes_sent = 0;
-	auto len = offsetof(lk_msg, m_data) - offsetof(lk_msg, m_task_count) + msg->m_stamp.m_frag_length == 0xffffffff ? 0 : msg->m_stamp.m_frag_length;
+	auto len = offsetof(lk_msg, m_data) - offsetof(lk_msg, m_task_count) + (msg->m_stamp.m_frag_length == 0xffffffff ? 0 : msg->m_stamp.m_frag_length);
 	do
 	{
 		error = libusb_bulk_transfer(m_usb_dev_handle, LIBUSB_ENDPOINT_OUT | m_usb_dev_info.m_bulk_out_addr, (uint8_t*)&msg->m_task_count, len, &bytes_sent, USB_TRANSFER_TIMEOUT);
