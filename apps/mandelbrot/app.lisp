@@ -46,10 +46,11 @@
 
 (defun dispatch_job (child)
 	;send another job to child
-	(. (defq val (. farm :find child)) :erase :job)
-	(when (defq job (pop jobs))
-		(. val :insert :job job)
-		(mail-send child job)))
+	(when (defq val (. farm :find child))
+		(. val :erase :job)
+		(when (defq job (pop jobs))
+			(. val :insert :job job)
+			(mail-send child job))))
 
 (defun worker (node reply)
 	;open remote worker child task
