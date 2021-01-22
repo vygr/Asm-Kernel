@@ -4,7 +4,6 @@
 (make '("apps/raymarch/lisp.vp") *abi* *cpu*)
 
 ;imports
-(import "sys/lisp.inc")
 (import "class/lisp.inc")
 (import "gui/lisp.inc")
 (import "lib/task/farm.inc")
@@ -50,17 +49,11 @@
 		(. val :insert :job job)
 		(mail-send child job)))
 
-(defun worker (node reply)
-	;open remote worker child task
-	(mail-send (cat (char 0 (const long_size)) node)
-		(cat (char 0 (const long_size)) reply
-			(char kn_call_child (const long_size))
-			"apps/raymarch/child.lisp" (char 0))))
-
 (defun create (nodes)
 	; (create nodes)
 	;function called when entry is created
-	(worker (elem (random (length nodes)) nodes) (elem +select_task+ select)))
+	(open-task "apps/raymarch/child.lisp" (elem (random (length nodes)) nodes)
+		kn_call_child (elem +select_task+ select)))
 
 (defun destroy (key val)
 	; (destroy key val)
