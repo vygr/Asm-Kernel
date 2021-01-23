@@ -30,10 +30,10 @@ public:
 	virtual void stop_thread() { m_running = false; }
 	virtual void run_send();
 	virtual void run_receive();
-protected:
-	virtual bool send(lk_msg *msg) = 0;
-	virtual bool receive(lk_msg *msg) = 0;
 	bool m_running = true;
+protected:
+	virtual int send(lk_msg *msg) = 0;
+	virtual int receive(lk_msg *msg) = 0;
 	lk_msg *m_buffer;
 	std::thread m_thread_send;
 	std::thread m_thread_receive;

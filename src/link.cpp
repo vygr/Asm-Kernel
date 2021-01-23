@@ -7,16 +7,22 @@ void Link::run_send()
 	lk_msg *msg = start;
 	while (m_running)
 	{
-		if (msg->m_status == lk_chan_status_busy)
+		std::this_thread::sleep_for(std::chrono::milliseconds(LINK_POLLING_TIMEOUT));
+		auto old_msg = msg;
+		while (msg->m_status != lk_chan_status_busy)
 		{
-			if (send(msg))
-			{
-				msg->m_status = lk_chan_status_ready;
-				if (++msg == end) msg = start;
-			}
+			if (++msg == end) msg = start;
+			if (msg == old_msg) break;
 		}
-		else std::this_thread::sleep_for(std::chrono::milliseconds(LINK_POLLING_TIMEOUT));
+		while (m_running && msg->m_status == lk_chan_status_busy)
+		{
+			if (send(msg) != 0) goto exit;
+			msg->m_status = lk_chan_status_ready;
+			if (++msg == end) msg = start;
+		}
 	}
+exit:
+	m_running = false;
 }
 
 void Link::run_receive()
@@ -26,14 +32,20 @@ void Link::run_receive()
 	lk_msg *msg = start;
 	while (m_running)
 	{
-		if (msg->m_status == lk_chan_status_ready)
+		std::this_thread::sleep_for(std::chrono::milliseconds(LINK_POLLING_TIMEOUT));
+		auto old_msg = msg;
+		while (msg->m_status != lk_chan_status_ready)
 		{
-			if (receive(msg))
-			{
-				msg->m_status = lk_chan_status_busy;
-				if (++msg == end) msg = start;
-			}
+			if (++msg == end) msg = start;
+			if (msg == old_msg) break;
 		}
-		else std::this_thread::sleep_for(std::chrono::milliseconds(LINK_POLLING_TIMEOUT));
+		while (m_running && msg->m_status == lk_chan_status_ready)
+		{
+			if (receive(msg) != 0) goto exit;
+			msg->m_status = lk_chan_status_busy;
+			if (++msg == end) msg = start;
+		}
 	}
+exit:
+	m_running = false;
 }

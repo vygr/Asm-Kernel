@@ -48,10 +48,11 @@ void USB_Link_Monitor::run()
 
 	while (m_running)
 	{
-		//associate any free buffers with link cables
 		{
 			//hold lock just for this scope
 			std::lock_guard<std::mutex> lock(m_mutex);
+
+			//associate any free buffers with link cables
 			for (auto &itr : m_buffer_map)
 			{
 				if (!itr.second)
@@ -64,6 +65,23 @@ void USB_Link_Monitor::run()
 						itr.second->start_thread();
 					}
 				}			
+			}
+
+			//remove links that die
+			for (auto link_itr = begin(m_usb_links); link_itr != end(m_usb_links);)
+			{
+				if (!(*link_itr)->m_running)
+				{
+					//remove any buffer association
+					auto itr = std::find_if(begin(m_buffer_map), end(m_buffer_map), [&] (auto &b)
+					{
+						return b.second == (*link_itr).get();
+					});
+					if (itr != end(m_buffer_map)) itr->second = nullptr;
+					(*link_itr)->join_thread();
+					link_itr = m_usb_links.erase(link_itr);
+				}
+				else link_itr++;
 			}
 		}
 
@@ -91,20 +109,20 @@ size_t USB_Link_Monitor::sub_buffer(lk_msg *buffer)
 	return m_buffer_map.size();
 }
 
-bool USB_Link::send(lk_msg *msg)
+int USB_Link::send(lk_msg *msg)
 {
 	//send the buffer
 	auto error = 0;
 	auto bytes_sent = 0;
-	auto len = offsetof(lk_msg, m_data) - offsetof(lk_msg, m_task_count) + (msg->m_stamp.m_frag_length == 0xffffffff ? 0 : msg->m_stamp.m_frag_length);
+	int len = offsetof(lk_msg, m_data) - offsetof(lk_msg, m_task_count) + (msg->m_stamp.m_frag_length == 0xffffffff ? 0 : msg->m_stamp.m_frag_length);
 	do
 	{
 		error = libusb_bulk_transfer(m_usb_dev_handle, LIBUSB_ENDPOINT_OUT | m_usb_dev_info.m_bulk_out_addr, (uint8_t*)&msg->m_task_count, len, &bytes_sent, USB_TRANSFER_TIMEOUT);
-	} while (error != LIBUSB_SUCCESS && m_running);
-	return error == LIBUSB_SUCCESS ? true : false;
+	} while (m_running && error != LIBUSB_SUCCESS && error != LIBUSB_ERROR_NO_DEVICE);
+	return error;
 }
 
-bool USB_Link::receive(lk_msg *msg)
+int USB_Link::receive(lk_msg *msg)
 {
 	//receive the buffer
 	auto error = 0;
@@ -113,11 +131,6 @@ bool USB_Link::receive(lk_msg *msg)
 	{
 		error = libusb_bulk_transfer(m_usb_dev_handle, LIBUSB_ENDPOINT_IN | m_usb_dev_info.m_bulk_in_addr, (uint8_t*)&msg->m_task_count,
 				sizeof(lk_msg) - offsetof(lk_msg, m_task_count), &len, USB_TRANSFER_TIMEOUT);
-	} while (error != LIBUSB_SUCCESS && m_running);
-	if (error != LIBUSB_SUCCESS)
-	{
-		std::cout << "Error, libusb!" << std::endl;
-		return false;
-	}
-	return true;
+	} while (m_running && error != LIBUSB_SUCCESS && error != LIBUSB_ERROR_NO_DEVICE);
+	return error;
 }

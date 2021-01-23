@@ -38,8 +38,8 @@ public:
 		m_usb_dev_handle = nullptr;
 	}
 protected:
-	virtual bool send(lk_msg *msg) override;
-	virtual bool receive(lk_msg *msg) override;
+	virtual int send(lk_msg *msg) override;
+	virtual int receive(lk_msg *msg) override;
 private:
 	USB_Info m_usb_dev_info;
 	libusb_device_handle *m_usb_dev_handle = nullptr;
