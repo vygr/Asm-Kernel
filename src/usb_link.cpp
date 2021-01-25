@@ -118,25 +118,15 @@ bool USB_Link_Monitor::associated(lk_msg *buffer)
 int USB_Link::send(lk_msg *msg)
 {
 	//send the buffer
-	auto error = 0;
 	auto bytes_sent = 0;
 	int len = offsetof(lk_msg, m_data) - offsetof(lk_msg, m_task_count) + (msg->m_stamp.m_frag_length == 0xffffffff ? 0 : msg->m_stamp.m_frag_length);
-	do
-	{
-		error = libusb_bulk_transfer(m_usb_dev_handle, LIBUSB_ENDPOINT_OUT | m_usb_dev_info.m_bulk_out_addr, (uint8_t*)&msg->m_task_count, len, &bytes_sent, USB_TRANSFER_TIMEOUT);
-	} while (m_running && error != LIBUSB_SUCCESS && error != LIBUSB_ERROR_NO_DEVICE);
-	return error;
+	return libusb_bulk_transfer(m_usb_dev_handle, LIBUSB_ENDPOINT_OUT | m_usb_dev_info.m_bulk_out_addr, (uint8_t*)&msg->m_task_count, len, &bytes_sent, USB_TRANSFER_TIMEOUT);
 }
 
 int USB_Link::receive(lk_msg *msg)
 {
 	//receive the buffer
-	auto error = 0;
 	auto len = 0;
-	do
-	{
-		error = libusb_bulk_transfer(m_usb_dev_handle, LIBUSB_ENDPOINT_IN | m_usb_dev_info.m_bulk_in_addr, (uint8_t*)&msg->m_task_count,
+	return libusb_bulk_transfer(m_usb_dev_handle, LIBUSB_ENDPOINT_IN | m_usb_dev_info.m_bulk_in_addr, (uint8_t*)&msg->m_task_count,
 				sizeof(lk_msg) - offsetof(lk_msg, m_task_count), &len, USB_TRANSFER_TIMEOUT);
-	} while (m_running && error != LIBUSB_SUCCESS && error != LIBUSB_ERROR_NO_DEVICE);
-	return error;
 }
