@@ -112,7 +112,7 @@ size_t USB_Link_Monitor::sub_buffer(lk_msg *buffer)
 bool USB_Link_Monitor::associated(lk_msg *buffer)
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
-	return m_buffer_map.find(buffer) != end(m_buffer_map);
+	return m_buffer_map[buffer];
 }
 
 int USB_Link::send(lk_msg *msg)

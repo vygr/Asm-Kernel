@@ -345,16 +345,16 @@ int walk_directory(char* path,
 				{
 					if (walk_directory(path, filevisitor, foldervisitor))
 					{
-							closedir(dir);
-							return -1;
+						closedir(dir);
+						return -1;
 					}
 				}
 				else
 				{
 					if(filevisitor(path))
 					{
-							closedir(dir);
-							return -1;
+						closedir(dir);
+						return -1;
 					}
 				}
 				*NulPosition = '\0';
