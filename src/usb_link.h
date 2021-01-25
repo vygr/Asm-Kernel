@@ -56,6 +56,7 @@ public:
 	void run() override;
 	void add_buffer(lk_msg *buffer);
 	size_t sub_buffer(lk_msg *buffer);
+	bool associated(lk_msg *buffer);
 private:
 	std::vector<std::unique_ptr<USB_Link>> m_usb_links;
 	std::map<lk_msg*, USB_Link*> m_buffer_map;

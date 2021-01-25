@@ -566,14 +566,14 @@ uint64_t pii_unlink(const char *path)
 
 USB_Link_Monitor usb_monitor;
 
-uint64_t pii_start_usb(lk_msg *buffer)
+uint64_t pii_usb_start(lk_msg *buffer)
 {
 	if (!usb_monitor.m_running) usb_monitor.start_thread();
 	usb_monitor.add_buffer(buffer);
 	return 0;
 }
 
-uint64_t pii_stop_usb(lk_msg *buffer)
+uint64_t pii_usb_stop(lk_msg *buffer)
 {
 	if (!usb_monitor.sub_buffer(buffer) && usb_monitor.m_running)
 	{
@@ -581,6 +581,11 @@ uint64_t pii_stop_usb(lk_msg *buffer)
 		usb_monitor.join_thread();
 	}
 	return 0;
+}
+
+uint64_t pii_usb_running(lk_msg *buffer)
+{
+	return usb_monitor.associated(buffer);
 }
 
 static void (*host_os_funcs[]) = {
@@ -603,8 +608,9 @@ static void (*host_os_funcs[]) = {
 (void*)pii_seek,
 (void*)pii_random,
 (void*)pii_sleep,
-(void*)pii_start_usb,
-(void*)pii_stop_usb,
+(void*)pii_usb_start,
+(void*)pii_usb_stop,
+(void*)pii_usb_running,
 };
 
 #ifdef _GUI
