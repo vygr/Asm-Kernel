@@ -126,13 +126,13 @@ get-cstr get-logsrvc-mb gets gets-in identity import indexable? insert int
 intern intern-seq into-fn into-map into-set join keys last load-stream log2
 lognot long map map-rev map? merge-into! named-xnode named-xnode? neg? nempty?
 netid nil? nlo nlz nodeid nto ntz num-to-char num-to-utf8 odd? offset
-open-child open-farm open-pipe open-remote pad partition ping-service pos? pow
-ptr range reduce reduce-rev reduced-reduce reduced-reduce-rev
-release-log-anchor rest reverse second set? sets! sets-in! sets-pairs! short
-shuffle shuffled shutdown-log-service sort sorted starts-with str-to-num struct
-swap to-kw to-lower to-net-id to-service-id to-upper trim trim-end trim-start
-type-to-size unzip updates-in! values within-compile-env write-line xmap
-xmap-kv xmap? xnode xnode? xset xset-k xset? zip
+open-child open-pipe open-remote pad partition ping-service pos? pow ptr range
+reduce reduce-rev reduced-reduce reduced-reduce-rev release-log-anchor rest
+reverse second set? sets! sets-in! sets-pairs! short shuffle shuffled
+shutdown-log-service sort sorted starts-with str-to-num struct swap to-kw
+to-lower to-net-id to-service-id to-upper trim trim-end trim-start type-to-size
+unzip updates-in! values within-compile-env write-line xmap xmap-kv xmap? xnode
+xnode? xset xset-k xset? zip
 ```
 
 ## Within any cmd/lisp.lisp instance
