@@ -7,7 +7,7 @@ sticking to 'the lisp way', or whatever your local Lisp guru says. No doubt I
 will have many demons in hell awaiting me...
 
 First of all there is no garbage collector by choice. All objects used by the
-Lisp are reference counted objects from the class library. Early on the Lisp
+Lisp are reference counted objects from the VP class library. Early on the Lisp
 was never going to have a problem with cycles because it had no way to create
 them, but as I developed the assembler I decided to introduce two functions,
 `(push)` and `(elem-set)`, that could create cycles. However the efficiency
@@ -17,7 +17,7 @@ scope, but again this was too good an efficiency feature to miss out on. So you
 do have to be careful not to create cycles, so think about how your code works.
 
 No tail recursion optimization ! There is a single looping function provided in
-native code, `(while)`, every other looping construct builds on this primitive.
+native code, `(while)`, every other looping constructs build on this primitive.
 There are also two native primitives `(some!)` and `(each!)` that provide
 generic access to iterating over a slice of a sequence/s, while calling a
 function on the grouped elements. Standard `(some)` and `(each)` are built on
@@ -47,8 +47,8 @@ map. `(setq)` searches the environment chain to find an existing entry and sets
 that entry or fails with an error. This means `(setq)` can be used to write to
 symbols outside the scope of the current function. Some people don't like this,
 but used wisely it can be very powerful. Coming from an assembler background I
-prefer to have all the guns and knives available, so try not to shoot your foot
-off.
+prefer to have all the guns and knives available, so try not to shoot/cut your
+foot off.
 
 There is no cons, cdr or car stuff. Lists are just vector objects and you use
 `(push)`, `(cat)`, `(slice)` etc to manipulate elements. Also an empty list
@@ -74,13 +74,13 @@ t
 ```vdu
 % * + - . / /= < << <= = > >= >> >>> abs apply array bind cap cat catch char
 clear cmp code cond copy def def? defq each! elem elem-set env eql eval f2i f2r
-ffi file-stream find find-rev fixeds gensym get hash i2f i2r io-stream lambda
-length list load logand logior logxor macro macroexpand match? max merge-obj
-min neg nums penv pii-dirlist pii-fstat pii-read-char pii-remove pii-time
-pii-write-char pivot pop prebind prin print progn push quasi-quote quote r2f
-r2i random read read-avail read-char read-line reals repl save set setq slice
-some! split str string-stream sym throw tolist type-of undef while write
-write-char
+ffi file-stream find find-rev fixeds gensym get hash i2f i2r if io-stream
+lambda length list load logand logior logxor macro macroexpand match? max
+merge-obj min neg nums penv pii-dirlist pii-fstat pii-read-char pii-remove
+pii-time pii-write-char pivot pop prebind prin print progn push quasi-quote
+quote r2f r2i random read read-avail read-char read-line reals repl save set
+setq slice some! split str string-stream sym throw tolist type-of undef while
+write write-char
 ```
 
 ### boot.inc symbols
@@ -108,7 +108,7 @@ write-char
 # .-> .super and ascii-char ascii-code case compose const curry dec
 defabstractmethod defclass deffimethod defmacro defmethod defun defun-unbound
 each each-rev env? every func? get-byte get-int get-long get-short get-ubyte
-get-uint get-ushort if inc lambda? let list? macro? merges not notany notevery
+get-uint get-ushort inc lambda? let list? macro? merges not notany notevery
 num? opt or pairs-into-kv rcurry read-int read-long read-short reduced seq?
 setd some str? sym? times unless until when write-int write-long write-short
 ```
