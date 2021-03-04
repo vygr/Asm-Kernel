@@ -20,13 +20,17 @@ function zero_pad
 
 function add_link
 {
-	if [ $1 != $2 ]
+	zero_pad $(($1 + $base_cpu))
+	l1=$zp
+	zero_pad $(($2 + $base_cpu))
+	l2=$zp
+	if [ $l1 != $l2 ]
 	then
-		if [ $1 -lt $2 ]
+		if [ $l1 -lt $l2 ]
 		then
-			nl=$1-$2
+			nl=$l1-$l2
 		else
-			nl=$2-$1
+			nl=$l2-$l1
 		fi
 		if [[ "$links" != *"$nl"* ]]
 		then
@@ -64,4 +68,47 @@ function boot_cpu_tui
 	fi
 }
 
-./stop.sh
+function main
+{
+	num_cpu=$1
+	max_cpu=$2
+	shift 2
+	base_cpu=0
+	emu=""
+	while [ "$#" -gt 0 ]; do
+	case $1 in
+		-e)
+			emu=$1;
+			shift
+			;;
+		-n)
+			num_cpu=$2
+			shift 2
+			;;
+		-b)
+			base_cpu=$2
+			shift 2
+			;;
+		*)	echo "Unknown Option" $1
+			echo "[-n cnt] number of nodes"
+			echo "[-b base] base offset"
+			echo "[-e] emulator mode"
+			echo "[-h] help"
+			num_cpu=0
+			break
+			;;
+	esac
+	done
+
+	#not greater than 16
+	if [ $num_cpu -gt $max_cpu ]
+	then
+		num_cpu=$max_cpu
+	fi
+
+	#shutdown all nodes if base is 0
+	if [ $base_cpu -eq 0 ]
+	then
+		./stop.sh
+	fi
+}

@@ -1,56 +1,32 @@
 #!/bin/bash
 
-#process args defaults
-num_cpu=64
-emu=""
-for var in "$@"
-do
-	if [ $var == "-e" ]
-	then
-		emu=$var
-	else
-		num_cpu=$var
-	fi
-done
-
-#not greater than 64
-if [ $num_cpu -gt 64 ]
-then
-	num_cpu=64
-fi
-
+#common functions
 source funcs.sh
 
-for ((cpu=$num_cpu-1; cpu>=0; cpu--))
-do
-	links=""
+#process args defaults
+main 64 64 $@
 
-	lcpu=$(((cpu-1) / 2))
-	zero_pad $cpu
-	c1=$zp
-	zero_pad $lcpu
-	c2=$zp
-	add_link $c1 $c2
+if [ $num_cpu -ne 0 ]
+then
+	for ((cpu=$num_cpu-1; cpu>=0; cpu--))
+	do
+		links=""
 
-	lcpu=$(((cpu*2)+1))
-	if [ $lcpu -lt $num_cpu ]
-	then
-		zero_pad $cpu
-		c1=$zp
-		zero_pad $lcpu
-		c2=$zp
-		add_link $c1 $c2
-	fi
+		lcpu=$(((cpu-1) / 2))
+		add_link $cpu $lcpu
 
-	lcpu=$(((cpu*2)+2))
-	if [ $lcpu -lt $num_cpu ]
-	then
-		zero_pad $cpu
-		c1=$zp
-		zero_pad $lcpu
-		c2=$zp
-		add_link $c1 $c2
-	fi
+		lcpu=$(((cpu*2)+1))
+		if [ $lcpu -lt $num_cpu ]
+		then
+			add_link $cpu $lcpu
+		fi
 
-	boot_cpu_gui $cpu $emu "$links"
-done
+		lcpu=$(((cpu*2)+2))
+		if [ $lcpu -lt $num_cpu ]
+		then
+			add_link $cpu $lcpu
+		fi
+
+		boot_cpu_gui $cpu $emu "$links"
+	done
+fi
