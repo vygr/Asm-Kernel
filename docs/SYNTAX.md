@@ -1440,14 +1440,6 @@
 
 ```
 
-## byte
-
-```lisp
-
-(byte field ...)
-
-```
-
 ## canvas-brighter
 
 ```lisp
@@ -2288,6 +2280,14 @@
 
 ```
 
+## get-nodeid
+
+```lisp
+
+(get-nodeid str index) -> nodeid
+
+```
+
 ## get-short
 
 ```lisp
@@ -2317,6 +2317,14 @@
 ```lisp
 
 (get-ushort str index) -> num
+
+```
+
+## getf
+
+```lisp
+
+(getf str field) -> value
 
 ```
 
@@ -2461,14 +2469,6 @@
 ```lisp
 
 (insert seq pos seq) -> seq
-
-```
-
-## int
-
-```lisp
-
-(int field ...)
 
 ```
 
@@ -2661,14 +2661,6 @@
 ```lisp
 
 (logxor [num] ...)
-
-```
-
-## long
-
-```lisp
-
-(long field ...)
 
 ```
 
@@ -2872,14 +2864,6 @@
 
 ```
 
-## net_id
-
-```lisp
-
-(net_id field ...)
-
-```
-
 ## nil?
 
 ```lisp
@@ -3069,14 +3053,6 @@
 ```lisp
 
 (odd? num) -> bool
-
-```
-
-## offset
-
-```lisp
-
-(offset field ...)
 
 ```
 
@@ -3368,14 +3344,6 @@
 
 ```
 
-## ptr
-
-```lisp
-
-(ptr field ...)
-
-```
-
 ## push
 
 ```lisp
@@ -3648,14 +3616,6 @@
 
 ```
 
-## short
-
-```lisp
-
-(short field ...)
-
-```
-
 ## shuffle
 
 ```lisp
@@ -3816,19 +3776,11 @@
 
 ```
 
-## struct
-
-```lisp
-
-(struct size field ...)
-
-```
-
 ## structure
 
 ```lisp
 
-(structure name offset [body])
+(structure name offset [(byte field ...)] ...)
 
 ```
 
