@@ -21,4 +21,4 @@
 			(defq stdio (create-stdio))
 			(defq cnt 1 args (options stdio usage)))
 		;start usb links, on same node !
-		(times cnt (mail-send (defq id (open-child "sys/link/usb_link" kn_call_child)) "usb"))))
+		(times cnt (mail-send (defq id (open-child "sys/link/usb_link" +kn_call_child)) "usb"))))
