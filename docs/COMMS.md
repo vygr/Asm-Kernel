@@ -92,7 +92,7 @@ mailbox ID is discarded as junk mail.
 On creation of a process it is allocated a main local mailbox and the `net_id`
 is returned to the creator. There are functions provided to create multiple
 child processes in a single call. Such functions can be used to create farms,
-arrays, and pipelines of processes. These functions return a list of `net_id`s.
+arrays, and pipelines of processes. These functions return a list of `net_id`.
 The creator can then go on to wire these mailboxes and processes in any
 communications structure it desires.
 
@@ -107,7 +107,7 @@ other processes via a call to `'sys_mail :enquire` with the given name. A
 service entry can be removed with the `'sys_mail :forget` function.
 
 The system maintains a directory of these service names and the corresponding
-process `net_id`s. An example service is the current GUI `DEBUG_SERVICE`
+process `net_id`. An example service is the current GUI `DEBUG_SERVICE`
 application `apps/debug/app.lisp`.
 
 ### VP example
@@ -184,7 +184,7 @@ animation callback purposes or in combination with `'sys_mail :select` to
 provided timed mailbox read functionality. If the time delay given is 0 the
 call will remove the entry from the timer list.
 
-### Lisp example using getf, setf, setf-> and str-alloc
+### Lisp example
 
 In order to ease simple message construction sending and receiving, you can use
 the `(structure)` macros in conjunction with raw string allocation and the
@@ -239,4 +239,37 @@ On receipt of the child's reply the parent unpacks the response using `(getf)`.
 		(defq task_val (getf msg +reply_task_count)
 			memory_val (getf msg +reply_mem_used)))
 ...
+```
+
+Here is the full child task source so you can see how it creates multiple
+mailboxes and uses `(mail-select) (mail-timeout)` calls to wait for a parent
+polling request or time out and exit if orphaned.
+
+```vdu
+(import "sys/lisp.inc")
+(import "apps/netmon/app.inc")
+
+(enums +select 0
+	(enum main timeout))
+
+(defun main ()
+	(defq select (list (task-mailbox) (mail-alloc-mbox))
+		running t +timeout 5000000)
+	(while running
+		(mail-timeout (elem +select_timeout select) +timeout)
+		(defq msg (mail-read (elem (defq idx (mail-select select)) select)))
+		(cond
+			((or (= idx +select_timeout) (eql msg ""))
+				;timeout or quit
+				(setq running nil))
+			((= idx +select_main)
+				;main mailbox, reset timeout and reply with info
+				(mail-timeout (elem +select_timeout select) 0)
+				(bind '(task_count mem_used) (kernel-stats))
+				(mail-send msg (setf-> (str-alloc +reply_size)
+					(+reply_node (slice +long_size -1 (task-mailbox)))
+					(+reply_task_count task_count)
+					(+reply_mem_used mem_used))))))
+	(mail-free-mbox (pop select)))
+
 ```
