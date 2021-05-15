@@ -10,7 +10,7 @@
 
 (defq vdu_min_width 16 vdu_min_height 16
 	vdu_max_width 120 vdu_max_height 50
-	vdu_width 80 vdu_height 50 tabs 4
+	vdu_width 80 vdu_height 40 tabs 4
 	text_buf (Buffer) scroll_map (xmap 31)
 	current_file nil selected_node nil id t mouse_state :u)
 
@@ -52,8 +52,8 @@
 	;set slider values for this file
 	(bind '(scroll_x scroll_y) (. scroll_map :find file))
 	(bind '(text_width text_height) (. text_buf :get_size))
-	(defq scroll_maxx (max 0 (- text_width vdu_width))
-		scroll_maxy (max 0 (- text_height vdu_height))
+	(defq scroll_maxx (max 0 (- text_width vdu_width -1))
+		scroll_maxy (max 0 (- text_height vdu_height -1))
 		scroll_x (min scroll_x scroll_maxx)
 		scroll_y (min scroll_y scroll_maxy))
 	(def (. xslider :dirty) :maximum scroll_maxx :portion vdu_width :value scroll_x)
@@ -115,9 +115,10 @@
 	(if (>= cx (+ sx w)) (setq sx (- cx w -1)))
 	(if (>= cy (+ sy h)) (setq sy (- cy h -1)))
 	(. scroll_map :insert current_file (list sx sy))
-	(.-> text_buf (:set_scroll sx sy) (:vdu_load vdu))
-	(set-sliders current_file))
+	(bind '(sx sy) (set-sliders current_file))
+	(.-> text_buf (:set_scroll sx sy) (:vdu_load vdu)))
 
+;import key binding after any editor functions are defind !
 (import "apps/edit/bindings.inc")
 
 (defun main ()
