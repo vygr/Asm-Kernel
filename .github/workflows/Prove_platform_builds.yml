@@ -1,0 +1,30 @@
+name: C/C++ CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install Ubuntu packages
+      if: matrix.os == 'ubuntu-latest'
+      run: sudo apt-get install -y libsdl2-dev libsdl2-ttf-dev
+    - name: Install Mac packages, setup framework
+      if: matrix.os == 'macos-latest'
+      run: brew install sdl2 &&sudo mkdir -p /Library/Frameworks/SDL2.framework/Headers/ && sudo cp -r /usr/local/include/SDL2/ /Library/Frameworks/SDL2.framework/Headers/
+    - name: Install Windows packages
+      if: matrix.os == 'windows-latest'
+      run: wget https://www.libsdl.org/release/SDL2-2.0.14-win32-x64.zip && ls && dir
+    - name: Build (same on all platforms)
+      run: make clean && make -j
