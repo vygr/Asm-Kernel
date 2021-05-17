@@ -3,6 +3,7 @@
 ;;;;;;;;;;;;;;;;;;;;
 
 (import "lib/text/syntax.inc")
+(import "lib/consts/chars.inc")
 
 ;module
 (env-push)
@@ -63,9 +64,18 @@
 				(push buffer_colored line)
 				(push buffer_states '(nil nil)))
 			(file-stream filepath))
-			(clear (get :undo_stack this) (get :redo_stack this))
+		(clear (get :undo_stack this) (get :redo_stack this))
 		(set this :buffer buffer :buffer_colored buffer_colored
 			:buffer_states buffer_states :max_width max_width :dirty t)
+		this)
+
+	(defmethod :file_save (this filepath)
+		; (. buffer :file_save filepath) -> buffer
+		(defq syntax (get :syntax this) tab_width (get :tab_width this)
+			stream (file-stream filepath +file_open_write))
+		(each (lambda (line)
+				(write-line stream (. syntax :compress_tabs line tab_width)))
+			(get :buffer this))
 		this)
 
 	(defmethod :vdu_load (this vdu)
