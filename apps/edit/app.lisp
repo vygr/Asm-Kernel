@@ -8,7 +8,7 @@
 	(enum close max min)
 	(enum layout xscroll yscroll)
 	(enum tree_action folder_action leaf_action)
-	(enum save undo redo))
+	(enum save undo redo cut copy paste))
 
 (defq vdu_min_width 16 vdu_min_height 16
 	vdu_max_width 120 vdu_max_height 50
@@ -19,7 +19,7 @@
 (ui-window mywindow (:color +argb_grey2)
 	(ui-title-bar mytitle "" (0xea19 0xea1b 0xea1a) +event_close)
 	(ui-tool-bar _ ()
-		(ui-buttons (0xea07 0xe9fe 0xe99d) +event_save))
+		(ui-buttons (0xea07 0xe9fe 0xe99d 0xea08 0xe9ca 0xe9c9) +event_save))
 	(ui-flow _ (:flow_flags +flow_right_fill :font *env_terminal_font*)
 		(ui-scroll tree_scroll +scroll_flag_vertical nil
 			(. (ui-tree tree +event_tree_action (:min_width 0 :color +argb_white))
@@ -69,7 +69,7 @@
 	;load up the vdu widget from this file
 	(. text_buf :file_load (setq current_file file))
 	(bind '(scroll_x scroll_y) (set-sliders file))
-	(.-> text_buf (:set_scroll scroll_x scroll_y) (:set_cursor 0 0) (:vdu_load vdu))
+	(.-> text_buf (:set_cursor 0 0) (:vdu_load vdu scroll_x scroll_y))
 	(def mytitle :text (cat "Edit -> " file))
 	(.-> mytitle :layout :dirty))
 
@@ -96,7 +96,7 @@
 	(bind '(w h) (. vdu :pref_size))
 	(bind '(scroll_x scroll_y) (set-sliders current_file))
 	(set vdu :min_width vdu_min_width :min_height vdu_min_height)
-	(.-> text_buf (:set_scroll scroll_x scroll_y) (:vdu_load (. vdu :change x y w h))))
+	(. text_buf :vdu_load (. vdu :change x y w h) scroll_x scroll_y))
 
 (defun vdu-resize (w h)
 	;size the vdu and layout the window to fit
@@ -107,12 +107,12 @@
 	(set vdu :min_width vdu_min_width :min_height vdu_min_height)
 	(. mywindow :change_dirty x y w h)
 	(bind '(scroll_x scroll_y) (set-sliders current_file))
-	(.-> text_buf (:set_scroll scroll_x scroll_y) (:vdu_load vdu)))
+	(. text_buf :vdu_load vdu scroll_x scroll_y))
 
 (defun refresh ()
 	;refresh display and ensure cursor is visible
 	(bind '(cx cy) (. text_buf :get_cursor))
-	(bind '(sx sy) (. text_buf :get_scroll))
+	(bind '(sx sy) (. scroll_map :find current_file))
 	(bind '(w h) (. vdu :vdu_size))
 	(if (< cx sx) (setq sx cx))
 	(if (< cy sy) (setq sy cy))
@@ -120,7 +120,7 @@
 	(if (>= cy (+ sy h)) (setq sy (- cy h -1)))
 	(. scroll_map :insert current_file (list sx sy))
 	(bind '(sx sy) (set-sliders current_file))
-	(.-> text_buf (:set_scroll sx sy) (:vdu_load vdu)))
+	(. text_buf :vdu_load vdu sx sy))
 
 ;import key binding after any editor functions are defind !
 (import "apps/edit/bindings.inc")
@@ -131,7 +131,7 @@
 	(. tree :change 0 0 (def tree_scroll :min_width w) h)
 	(bind '(x y w h) (apply view-locate (.-> mywindow (:connect +event_layout) :pref_size)))
 	(gui-add (. mywindow :change x y w h))
-	(. text_buf :vdu_load vdu)
+	(. text_buf :vdu_load vdu 0 0)
 	(while id (cond
 		((= (setq id (getf (defq msg (mail-read (task-mailbox))) +ev_msg_target_id)) +event_close)
 			(setq id nil))
@@ -155,18 +155,30 @@
 			;redo
 			(. text_buf :redo)
 			(refresh))
+		((= id +event_cut)
+			;cut
+			(. text_buf :cut)
+			(refresh))
+		((= id +event_copy)
+			;copy
+			(. text_buf :copy)
+			(refresh))
+		((= id +event_paste)
+			;copy
+			(. text_buf :paste (join '("" "test" "" "" "one" "two" "") (ascii-char +char_lf)))
+			(refresh))
 		((= id +event_xscroll)
 			;user xscroll bar
 			(bind '(scroll_x scroll_y) (. scroll_map :find current_file))
 			(defq scroll_x (get :value xslider))
 			(. scroll_map :insert current_file (list scroll_x scroll_y))
-			(.-> text_buf (:set_scroll scroll_x scroll_y) (:vdu_load vdu)))
+			(. text_buf :vdu_load vdu scroll_x scroll_y))
 		((= id +event_yscroll)
 			;user yscroll bar
 			(bind '(scroll_x scroll_y) (. scroll_map :find current_file))
 			(defq scroll_y (get :value yslider))
 			(. scroll_map :insert current_file (list scroll_x scroll_y))
-			(.-> text_buf (:set_scroll scroll_x scroll_y) (:vdu_load vdu)))
+			(. text_buf :vdu_load vdu scroll_x scroll_y))
 		((= id +event_tree_action)
 			;tree view action
 			(bind '(w h) (. tree :pref_size))
@@ -187,7 +199,7 @@
 		((and (= id (. vdu :get_id)) (= (getf msg +ev_msg_type) +ev_type_mouse))
 			;mouse event on display
 			(bind '(cw ch) (. vdu :char_size))
-			(bind '(sx sy) (. text_buf :get_scroll))
+			(bind '(sx sy) (. scroll_map :find current_file))
 			(defq x (getf msg +ev_msg_mouse_rx) y (getf msg +ev_msg_mouse_ry))
 			(setq x (if (>= x 0) x (- x cw)) y (if (>= y 0) y (- y ch)))
 			(setq x (+ sx (/ x cw)) y (+ sy (/ y ch)))
