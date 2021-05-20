@@ -11,7 +11,7 @@
 	(enum tree_action folder_action leaf_action)
 	(enum save undo redo cut copy paste))
 
-(defq vdu_min_width 16 vdu_min_height 16 vdu_max_width 120 vdu_max_height 50
+(defq vdu_min_width 16 vdu_min_height 16 vdu_max_width 120 vdu_max_height 48
 	vdu_width 80 vdu_height 40 tabs 4 anchor_x 0 anchor_y 0
 	text_buf (Buffer) scroll_map (xmap 31) underlay (list)
 	current_file nil selected_node nil id t mouse_state :u
@@ -61,20 +61,21 @@
 (defun create-underlay ()
 	;create the underlay
 	(bind '(x y) (. text_buf :get_cursor))
-	(if (<= y anchor_y)
-		(defq x1 anchor_x y1 anchor_y)
-		(defq x1 x y1 y x anchor_x y anchor_y))
+	(defq x1 anchor_x y1 anchor_y)
+	(if (> y y1)
+		(defq x (logxor x x1) x1 (logxor x x1) x (logxor x x1)
+			y (logxor y y1) y1 (logxor y y1) y (logxor y y1)))
 	(and (= y y1) (> x x1)
-		(defq tx x x x1 x1 tx))
+		(defq x (logxor x x1) x1 (logxor x x1) x (logxor x x1)))
 	(setq underlay (cap y1 (clear underlay)))
 	(defq uy -1 buffer (get :buffer text_buf))
 	(while (< (setq uy (inc uy)) y) (push underlay ""))
 	(cond
 		((= y y1)
 			(push underlay (cat (slice 0 x +not_selected) (slice x x1 +selected))))
-		(t	(push underlay (cat (slice 0 x +not_selected) (slice x (length (elem y buffer)) +selected)))
+		(t	(push underlay (cat (slice 0 x +not_selected) (slice x (inc (length (elem y buffer))) +selected)))
 			(while (< (setq y (inc y)) y1)
-				(push underlay (slice 0 (length (elem y buffer)) +selected)))
+				(push underlay (slice 0 (inc (length (elem y buffer))) +selected)))
 			(push underlay (slice 0 x1 +selected)))))
 
 (defun clear-underlay ()
@@ -166,7 +167,8 @@
 	(bind '(scroll_x scroll_y) (set-sliders current_file))
 	(load-display scroll_x scroll_y))
 
-;import key binding after any editor functions are defind !
+;import editor actions and key bindings
+(import "apps/edit/actions.inc")
 (import "apps/edit/bindings.inc")
 
 (defun main ()
@@ -179,39 +181,17 @@
 	(while id (cond
 		((= (setq id (getf (defq msg (mail-read (task-mailbox))) +ev_msg_target_id)) +event_close)
 			(setq id nil))
+		((= id +event_min) (action-minimise))
+		((= id +event_max) (action-maximise))
+		((= id +event_save) (action-save))
+		((= id +event_undo) (action-undo))
+		((= id +event_redo) (action-redo))
+		((= id +event_cut) (action-cut))
+		((= id +event_copy) (action-copy))
+		((= id +event_paste) (action-paste))
 		((= id +event_layout)
 			;user window resize
 			(apply window-resize (. vdu :max_size)))
-		((= id +event_min)
-			;min button
-			(vdu-resize vdu_min_width vdu_min_height))
-		((= id +event_max)
-			;max button
-			(vdu-resize vdu_max_width vdu_max_height))
-		((= id +event_save)
-			;save
-			(. text_buf :file_save current_file))
-		((= id +event_undo)
-			;undo
-			(. text_buf :undo)
-			(refresh))
-		((= id +event_redo)
-			;redo
-			(. text_buf :redo)
-			(refresh))
-		((= id +event_cut)
-			;cut selection to clipboard
-			(clipboard-put (. text_buf :cut anchor_x anchor_y))
-			(clear-underlay) (refresh))
-		((= id +event_copy)
-			;copy selection to clipboard
-			(clipboard-put (. text_buf :copy anchor_x anchor_y))
-			(clear-underlay) (refresh))
-		((= id +event_paste)
-			;paste from clipboard if present
-			(unless (eql (defq data (clipboard-get)) "")
-				(. text_buf :paste data)
-				(clear-underlay) (refresh)))
 		((= id +event_xscroll)
 			;user xscroll bar
 			(bind '(scroll_x scroll_y) (. scroll_map :find current_file))
@@ -276,16 +256,15 @@
 				((/= 0 (logand mod (const (+ +ev_key_mod_control +ev_key_mod_command))))
 					;call bound control/command key action
 					(when (defq action (. key_map_control :find key))
-						(action) (clear-underlay)))
+						(action)))
 				((defq action (. key_map :find key))
 					;call bound key action
-					(action) (clear-underlay))
+					(action))
 				((<= +char_space key +char_tilda)
 					;insert the char
 					(. text_buf :cut anchor_x anchor_y)
 					(. text_buf :insert (char key))
-					(clear-underlay)))
-			(refresh))
+					(clear-underlay) (refresh))))
 		(t	;gui event
 			(. mywindow :event msg))))
 	(. mywindow :hide))

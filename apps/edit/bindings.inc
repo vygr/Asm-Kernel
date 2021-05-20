@@ -1,67 +1,21 @@
-;module
-(env-push)
+;default key bindings maps
 
-;default key bindings map
-(defq key_map (xmap) key_map_control (xmap))
-
-(defmacro binding (kmap key &rest _)
-	`(. ,kmap :insert ,key (lambda () ~_)))
-
-;cursor left
-(binding key_map 0x40000050
-	(. text_buf :left))
-;cursor right
-(binding key_map 0x4000004f
-	(. text_buf :right))
-;cursor up
-(binding key_map 0x40000052
-	(. text_buf :up))
-;cursor down
-(binding key_map 0x40000051
-	(. text_buf :down))
-;line break
-(binding key_map +char_lf
-	(. text_buf :cut anchor_x anchor_y)
-	(. text_buf :break))
-(binding key_map +char_cr
-	(. text_buf :cut anchor_x anchor_y)
-	(. text_buf :break))
-;backspace
-(binding key_map +char_backspace
-	(if (eql (. text_buf :cut anchor_x anchor_y) "")
-		(. text_buf :backspace)))
-;delete
-(binding key_map +char_delete
-	(if (eql (. text_buf :cut anchor_x anchor_y) "")
-		(. text_buf :delete)))
-;tab
-(binding key_map +char_tab
-	(. text_buf :cut anchor_x anchor_y)
-	(bind '(x y) (. text_buf :get_cursor))
-	(defq tab_width (get :tab_width text_buf))
-	(. text_buf :insert (pad "" (- tab_width (% x tab_width)) "        ")))
-
-;undo
-(binding key_map_control (ascii-code "z")
-	(. text_buf :undo))
-;redo
-(binding key_map_control (ascii-code "Z")
-	(. text_buf :redo))
-;save
-(binding key_map_control (ascii-code "s")
-	(. text_buf :file_save current_file))
-;cut
-(binding key_map_control (ascii-code "x")
-	(clipboard-put (. text_buf :cut anchor_x anchor_y)))
-;copy
-(binding key_map_control (ascii-code "c")
-	(clipboard-put (. text_buf :copy anchor_x anchor_y)))
-;paste
-(binding key_map_control (ascii-code "v")
-	(unless (eql (defq data (clipboard-get)) "")
-		(. text_buf :paste data)))
-
-;module
-(export (penv)
-	key_map key_map_control)
-(env-pop)
+(defq key_map (xmap-kv
+		0x40000050 action-left
+		0x4000004f action-right
+		0x40000052 action-up
+		0x40000051 action-down
+		+char_lf action-break
+		+char_cr action-break
+		+char_backspace action-backspace
+		+char_delete action-delete
+		+char_tab action-tab)
+	key_map_control (xmap-kv
+		(ascii-code "z") action-undo
+		(ascii-code "Z") action-redo
+		(ascii-code "s") action-save
+		(ascii-code "x") action-cut
+		(ascii-code "c") action-copy
+		(ascii-code "v") action-paste
+		(ascii-code "-") action-minimise
+		(ascii-code "=") action-maximise))
