@@ -11,9 +11,11 @@
 		+char_delete action-delete
 		+char_tab action-tab)
 	key_map_control (xmap-kv
+		(ascii-code "a") action-select-all
 		(ascii-code "z") action-undo
 		(ascii-code "Z") action-redo
 		(ascii-code "s") action-save
+		(ascii-code "t") action-trim
 		(ascii-code "x") action-cut
 		(ascii-code "c") action-copy
 		(ascii-code "v") action-paste

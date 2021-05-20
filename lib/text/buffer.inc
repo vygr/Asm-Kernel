@@ -82,7 +82,8 @@
 			(file-stream filepath))
 		(clear (get :undo_stack this) (get :redo_stack this))
 		(set this :buffer buffer :buffer_colored buffer_colored
-			:buffer_states buffer_states :max_width max_width :dirty t)
+			:buffer_states buffer_states :max_width max_width
+			:cursor_x 0 :cursor_y 0 :dirty t)
 		this)
 
 	(defmethod :file_save (this filepath)
@@ -94,16 +95,37 @@
 			(get :buffer this))
 		this)
 
+	(defmethod :trim (this)
+		; (. buffer :trim) -> buffer
+		(bind '(x y) (. this :get_cursor))
+		(bind '(x y) (. this :constrain x y))
+		(push (defq undo_stack (get :undo_stack this)) '(:mark) (list :cursor x y))
+		;trim front
+		(while (and (> (length (get :buffer this)) 0) (eql (elem 0 (get :buffer this)) ""))
+			(.-> this (:set_cursor 0 0) :delete))
+		;trim end
+		(while (and (> (length (get :buffer this)) 0) (eql (elem -2 (get :buffer this)) ""))
+			(.-> this (:set_cursor 0 (dec (length (get :buffer this)))) :backspace))
+		;trim lines
+		(each (lambda (line)
+			(unless (eql (defq trimed_line (trim-end line)) line)
+				(.-> this
+					(:set_cursor (length trimed_line) _)
+					(:delete (- (length line) (length trimed_line)))))) (get :buffer this))
+		(push undo_stack '(:mark))
+		(set this :dirty t)
+		(. this :set_cursor x y))
+
 	(defmethod :vdu_load (this vdu scroll_x scroll_y)
 		; (. buffer :vdu_load vdu scroll_x scroll_y) -> buffer
 		(when (get :dirty this)
-			(set this :dirty nil)
 			(defq syntax (get :syntax this)
 				buffer (get :buffer this)
 				buffer_colored (get :buffer_colored this)
 				buffer_states (get :buffer_states this)
-				state :text)
+				state :text max_width 0)
 			(each (lambda (line line_array (start_state end_state))
+					(setq max_width (max max_width (length line)))
 					(cond
 						((and (array? line_array) (eql state start_state))
 							(setq state end_state))
@@ -111,7 +133,8 @@
 								(.-> syntax (:set_state state) (:colorise line)))
 							(elem-set _ buffer_states
 								(list state (setq state (. syntax :get_state)))))))
-				buffer buffer_colored buffer_states))
+				buffer buffer_colored buffer_states)
+			(set this :max_width max_width :dirty nil))
 		(. vdu :load
 			(get :buffer_colored this)
 			scroll_x scroll_y (get :cursor_x this) (get :cursor_y this))
@@ -120,8 +143,11 @@
 	(defmethod :constrain (this x y)
 		; (. buffer :constrain x y) -> (list x y)
 		(defq buffer (get :buffer this) h (length buffer))
-		(setq y (min (max y 0) h)
-			x (max 0 (if (>= y h) 0 (min x (length (elem y buffer))))))
+		(cond
+			((< y 0) (setq x 0 y 0))
+			((>= y h) (setq x 0 y h))
+			((< x 0) (setq x 0))
+			((> x (length (elem y buffer))) (setq x (length (elem y buffer)))))
 		(list x y))
 
 	(defmethod :left (this)
