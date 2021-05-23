@@ -11,7 +11,7 @@
 	(enum tree_action)
 	(enum file_folder_action file_leaf_action)
 	(enum open_folder_action open_leaf_action)
-	(enum undo redo cut copy paste tab_left tab_right)
+	(enum undo redo cut copy paste reflow tab_left tab_right)
 	(enum prev next save new))
 
 (enums +meta 0
@@ -29,7 +29,7 @@
 	(ui-title-bar mytitle "Edit" (0xea19 0xea1b 0xea1a) +event_close)
 	(ui-flow _ (:flow_flags +flow_right_fill)
 		(ui-tool-bar _ ()
-			(ui-buttons (0xe9fe 0xe99d 0xea08 0xe9ca 0xe9c9 0xe90a 0xe90b) +event_undo)
+			(ui-buttons (0xe9fe 0xe99d 0xea08 0xe9ca 0xe9c9 0xe909 0xe90a 0xe90b) +event_undo)
 			(ui-buttons (0xe91d 0xe91e 0xea07 0xe9f0) +event_prev
 				(:color (const *env_toolbar2_col*))))
 		(. (ui-textfield name_text (:hint_text "new filename" :clear_text "" :color +argb_white))
@@ -72,8 +72,10 @@
 						(if (or	;src file ?
 								(ends-with ".vp" file)
 								(ends-with ".inc" file)
-								(ends-with ".lisp" file))
-							(push files (cat (slice 2 -1 root) "/" file))))
+								(ends-with ".lisp" file)
+								(ends-with ".md" file))
+							(push files (cat (slice
+								(if (eql root "./") 2 1) -1 root) "/" file))))
 					(t	;dir
 						(unless (starts-with "." file)
 							(push stack (cat root "/" file))))))
@@ -143,7 +145,8 @@
 	;load up the vdu widget from this file
 	;must create a fresh buffer if not seen this before !
 	(unless (. meta_map :find file)
-		(. meta_map :insert file (list 0 0 0 0 0 0 (defq buffer (Buffer))))
+		(defq mode (if (ends-with ".md" file) t nil))
+		(. meta_map :insert file (list 0 0 0 0 0 0 (defq buffer (Buffer mode))))
 		(if file (. buffer :file_load file)))
 	(bind '(x y ax ay sx sy buffer) (. meta_map :find file))
 	(setq cursor_x x cursor_y y anchor_x ax anchor_y ay
