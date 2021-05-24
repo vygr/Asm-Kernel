@@ -14,12 +14,13 @@
 	(enum undo redo cut copy paste reflow tab_left tab_right)
 	(enum prev next save new))
 
-(defq vdu_min_width 32 vdu_min_height 16 vdu_max_width 120 vdu_max_height 48
-	vdu_width 80 vdu_height 40 tabs 4 mouse_state :u
+(defq vdu_min_width 32 vdu_min_height 16 vdu_max_width 100 vdu_max_height 48
+	vdu_width 80 vdu_height 40 mouse_state :u
 	meta_map (xmap) underlay (list) shift_select nil
 	current_file nil selected_file_node nil selected_open_node nil
-	+selected (apply array (map (lambda (_) 0x80000000) (str-alloc 8192)))
-	+not_selected (apply array (map (lambda (_) 0) (str-alloc 8192))))
+	+selected (apply nums (map (lambda (_) 0x80000000) (str-alloc 8192)))
+	+not_selected (nums-sub +selected +selected)
+	+bracket_char (nums 0x80000000))
 
 (ui-window mywindow (:color +argb_grey2)
 	(ui-title-bar mytitle "Edit" (0xea19 0xea1b 0xea1a) +event_close)
@@ -30,25 +31,27 @@
 				(:color (const *env_toolbar2_col*))))
 		(. (ui-textfield name_text (:hint_text "new filename" :clear_text "" :color +argb_white))
 			:connect +event_new))
-	(ui-flow _ (:flow_flags +flow_right_fill :font *env_terminal_font*)
+	(ui-flow _ (:flow_flags +flow_right_fill)
 		(ui-flow _ (:flow_flags +flow_stack_fill)
 			(ui-grid tree_grid (:grid_width 1 :grid_height 2 :color +argb_grey14)
 				(ui-flow _ (:flow_flags +flow_down_fill)
 					(ui-label _ (:text "Open" :border 1))
 					(ui-scroll open_tree_scroll +scroll_flag_vertical nil
-						(. (ui-tree open_tree +event_open_folder_action (:min_width 0 :color +argb_white))
+						(. (ui-tree open_tree +event_open_folder_action
+								(:min_width 0 :color +argb_white :font *env_medium_terminal_font*))
 							:connect +event_tree_action)))
 				(ui-flow _ (:flow_flags +flow_down_fill)
 					(ui-label _ (:text "Project" :border 1))
 					(ui-scroll file_tree_scroll +scroll_flag_vertical nil
-						(. (ui-tree file_tree +event_file_folder_action (:min_width 0 :color +argb_white))
+						(. (ui-tree file_tree +event_file_folder_action
+								(:min_width 0 :color +argb_white :font *env_medium_terminal_font*))
 							:connect +event_tree_action))))
 			(ui-backdrop _ (:color +argb_white)))
 		(ui-flow _ (:flow_flags +flow_left_fill)
 			(. (ui-slider yslider) :connect +event_yscroll)
 			(ui-flow _ (:flow_flags +flow_up_fill)
 				(. (ui-slider xslider) :connect +event_xscroll)
-				(ui-flow _ (:flow_flags +flow_stack_fill)
+				(ui-flow _ (:flow_flags +flow_stack_fill :font *env_terminal_font*)
 					(ui-vdu vdu (:min_width vdu_width :min_height vdu_height
 						:vdu_width vdu_width :vdu_height vdu_height
 						:ink_color +argb_white))
@@ -87,22 +90,66 @@
 			y (logxor y y1) y1 (logxor y y1) y (logxor y y1)))
 	(and (= y y1) (> x x1)
 		(defq x (logxor x x1) x1 (logxor x x1) x (logxor x x1)))
-	(setq underlay (cap y1 (clear underlay)))
+	(cap (inc y1) (clear underlay))
 	(defq uy -1 buffer (get :buffer current_buffer))
 	(while (< (setq uy (inc uy)) y) (push underlay ""))
 	(cond
 		((= y y1)
-			(push underlay (cat (slice 0 x +not_selected) (slice x x1 +selected))))
-		(t	(push underlay (cat (slice 0 x +not_selected) (slice x (inc (length (elem y buffer))) +selected)))
+			(push underlay (cat
+				(slice 0 x +not_selected)
+				(slice x x1 +selected))))
+		(t	(push underlay (cat
+				(slice 0 x +not_selected)
+				(slice x (inc (length (elem y buffer))) +selected)))
 			(while (< (setq y (inc y)) y1)
 				(push underlay (slice 0 (inc (length (elem y buffer))) +selected)))
 			(push underlay (slice 0 x1 +selected)))))
 
 (defun clear-selection ()
-	;clear the underlay
+	;clear the underlay to just bracket indicators
 	(bind '(x y) (. current_buffer :get_cursor))
+	(bind '(x y) (. current_buffer :constrain x y))
+	(bind '(w h) (. current_buffer :get_size))
 	(setq anchor_x x anchor_y y shift_select nil)
-	(clear underlay))
+	(defq buffer (get :buffer current_buffer) y1 y x1 x c1 0 c2 0)
+	;search line for start
+	(while (and (/= c1 1) (>= (setq x (dec x)) 0))
+		(cond
+			((eql (elem x (elem y buffer)) "(") (setq c1 (inc c1)))
+			((eql (elem x (elem y buffer)) ")") (setq c1 (dec c1)))))
+	;search lines above for start
+	(while (and (/= c1 1) (>= (setq y (dec y)) 0))
+		(setq x (length (elem y buffer)))
+		(while (and (/= c1 1) (>= (setq x (dec x)) 0))
+			(cond
+				((eql (elem x (elem y buffer)) "(") (setq c1 (inc c1)))
+				((eql (elem x (elem y buffer)) ")") (setq c1 (dec c1))))))
+	;search line for end
+	(while (and (/= c2 1) (< (setq x1 (inc x1)) (length (elem y1 buffer))))
+		(cond
+			((eql (elem x1 (elem y1 buffer)) ")") (setq c2 (inc c2)))
+			((eql (elem x1 (elem y1 buffer)) "(") (setq c2 (dec c2)))))
+	;search lines above for end
+	(while (and (/= c2 1) (< (setq y1 (inc y1)) h))
+		(setq x1 -1)
+		(while (and (/= c2 1) (< (setq x1 (inc x1)) (length (elem y1 buffer))))
+			(cond
+				((eql (elem x1 (elem y1 buffer)) ")") (setq c2 (inc c2)))
+				((eql (elem x1 (elem y1 buffer)) "(") (setq c2 (dec c2))))))
+	(clear underlay)
+	(when (and (= c1 1) (= c2 1))
+		;we matched !!!
+		(cap (inc y1) underlay)
+		(defq uy -1 buffer (get :buffer current_buffer))
+		(while (< (setq uy (inc uy)) y) (push underlay ""))
+		(cond
+			((= y y1)
+				(push underlay (cat
+					(slice 0 x +not_selected) +bracket_char
+					(slice x (dec x1) +not_selected) +bracket_char)))
+			(t	(push underlay (cat (slice 0 x +not_selected) +bracket_char))
+				(while (< (setq y (inc y)) y1) (push underlay ""))
+				(push underlay (cat (slice 0 x1 +not_selected) +bracket_char))))))
 
 (defun load-display ()
 	;load the vdu widgets with the text and selection underlay
@@ -245,6 +292,8 @@
 					(t	;mouse button is up
 						(case mouse_state
 							(:d	;was down last time
+								(bind '(x y) (. current_buffer :get_cursor))
+								(and (= anchor_x x) (= anchor_y y) (clear-selection))
 								(setq mouse_state :u))
 							(:u	;was up last time
 								))))

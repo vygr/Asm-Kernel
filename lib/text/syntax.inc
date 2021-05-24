@@ -217,7 +217,7 @@
 			(string)))
 
 	(defmethod :text_flow (this words line_width)
-		; (. syntax :text_flow words) -> (str ...)
+		; (. syntax :text_flow words line_width) -> lines
 		;word reflow
 		(defq cnt 0 line (clear '()) lines (list))
 		(each (lambda (word)
@@ -228,8 +228,7 @@
 					(setq cnt (+ (length word) 1)))
 				(t	(push line word)))) words)
 		(if (> (length line) 0)
-			(push lines (join line " "))
-			(lines)))
+			(push lines (join line " ")) lines))
 	)
 
 ;module
