@@ -12,9 +12,10 @@
 	(enum file_folder_action file_leaf_action)
 	(enum open_folder_action open_leaf_action)
 	(enum undo redo rewind cut copy paste reflow tab_left tab_right)
-	(enum prev next save new))
+	(enum prev next save new)
+	(enum find_down find_up replace replace_all))
 
-(defq vdu_min_width 32 vdu_min_height 16 vdu_max_width 100 vdu_max_height 48
+(defq vdu_min_width 32 vdu_min_height 16 vdu_max_width 100 vdu_max_height 46
 	vdu_width 80 vdu_height 40 mouse_state :u meta_map (xmap) underlay (list)
 	current_file nil selected_file_node nil selected_open_node nil
 	+selected (apply nums (map (lambda (_)
@@ -31,6 +32,17 @@
 				(:color (const *env_toolbar2_col*))))
 		(. (ui-textfield name_text (:hint_text "new filename" :clear_text "" :color +argb_white))
 			:connect +event_new))
+	(ui-grid _ (:grid_width 2 :grid_height 1)
+		(ui-flow _ (:flow_flags +flow_right_fill)
+			(ui-tool-bar _ ()
+				(ui-buttons (0xe914 0xe91b) +event_find_down))
+			(. (ui-textfield find_text (:hint_text "find" :clear_text "" :color +argb_white))
+				:connect +event_find_down))
+		(ui-flow _ (:flow_flags +flow_right_fill)
+			(ui-tool-bar _ ()
+				(ui-buttons (0xe95c 0xe95e) +event_replace))
+			(. (ui-textfield replace_text (:hint_text "replace" :clear_text "" :color +argb_white))
+				:connect +event_replace)))
 	(ui-flow _ (:flow_flags +flow_right_fill)
 		(ui-flow _ (:flow_flags +flow_stack_fill)
 			(ui-grid tree_grid (:grid_width 1 :grid_height 2 :color +argb_grey14)

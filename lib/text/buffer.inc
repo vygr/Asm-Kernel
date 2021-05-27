@@ -4,6 +4,7 @@
 
 (import "lib/text/syntax.inc")
 (import "lib/consts/chars.inc")
+(import "lib/text/substr.inc")
 
 ;module
 (env-push)
@@ -149,7 +150,9 @@
 						(:set_cursor (length trimed_line) _)
 						(:delete (- (length line) (length trimed_line)))))) (list (get :buffer this)))
 			(push undo_stack '(:mark))
-			(. this :set_cursor x y)))
+			(bind '(x y) (. this :constrain x y))
+			(. this :set_cursor x y))
+		this)
 
 	(defmethod :reflow (this)
 		; (. buffer :reflow) -> buffer
@@ -167,10 +170,10 @@
 		(each (lambda (line)
 				(.-> this (:insert line) :break))
 			(. (get :syntax this) :text_flow words (get :wrap_width this)))
+		(push undo_stack '(:mark))
 		(bind '(x y) (. this :get_cursor))
 		(bind '(x y) (. this :constrain x (inc y)))
-		(. this :set_cursor x y)
-		(push undo_stack '(:mark)))
+		(. this :set_cursor x y))
 
 	(defmethod :tab_left (this anchor_x anchor_y)
 		; (. buffer :tab_left anchor_x anchor_y) -> buffer
@@ -456,6 +459,16 @@
 						((eql (elem x line) ")") (setq c (inc c)))
 						((eql (elem x line) "(") (setq c (dec c)))))))
 		(if (= c 1) (list x y) '(nil nil)))
+
+	(defmethod :find (this pattern)
+		; (. buffer :find) -> ([(x y)] ...)
+		(bind '(w h) (. this :get_size))
+		(defq out (list))
+		(each! 0 h (lambda (line)
+				(when (> (length line) 0)
+					(defq idx _)
+					(each (# (push out (list %0 idx))) (substr pattern line))))
+			(list (get :buffer this))) out)
 	)
 
 ;module
