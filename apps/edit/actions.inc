@@ -257,27 +257,14 @@
 (defun action-replace ()
 	(unless (or (eql (defq pattern (get :clear_text *find_text*)) "")
 				(eql (defq replace (get :clear_text *replace_text*)) pattern))
-		(cond
-			((and (selection?) (eql (. *current_buffer* :copy *anchor_x* *anchor_y*) pattern))
-				(. *current_buffer* :push_undo
-					(list :mark (defq mark (. *current_buffer* :next_mark)))
-					(list :cursor *cursor_x* *cursor_y*))
-				(. *current_buffer* :cut *anchor_x* *anchor_y*)
-				(.-> *current_buffer* (:insert replace) (:push_undo (list :mark mark)))
-				(clear-selection) (refresh))
-			((> (length (defq found (. *current_buffer* :find pattern))) 0)
-				(when (defq next (some (# (bind '(x y) %0)
-						(if (or (> y *cursor_y*)
-								(and (= y *cursor_y*) (>= x *cursor_x*)))
-							%0)) found))
-					(. *current_buffer* :push_undo
-						(list :mark (defq mark (. *current_buffer* :next_mark)))
-						(list :cursor *cursor_x* *cursor_y*))
-					(bind '(x y) next)
-					(.-> *current_buffer* (:set_cursor x y) (:cut (+ x (length pattern)) y))
-					(unless (eql replace "") (. *current_buffer* :insert replace))
-					(. *current_buffer* :push_undo (list :mark mark))
-					(clear-selection) (refresh))))))
+		(when (eql (. *current_buffer* :copy *anchor_x* *anchor_y*) pattern)
+			(. *current_buffer* :push_undo
+				(list :mark (defq mark (. *current_buffer* :next_mark)))
+				(list :cursor *cursor_x* *cursor_y*))
+			(. *current_buffer* :cut *anchor_x* *anchor_y*)
+			(.-> *current_buffer* (:insert replace) (:push_undo (list :mark mark)))
+			(create-selection) (refresh))
+		(action-find-down)))
 
 (defun action-replace-all ()
 	(unless (or (eql (defq pattern (get :clear_text *find_text*)) "")
@@ -298,8 +285,8 @@
 		(. *current_buffer* :push_undo
 			(list :mark (defq mark (. *current_buffer* :next_mark)))
 			(list :cursor *cursor_x* *cursor_y*))
-		(defq text (. *current_buffer* :cut *anchor_x* *anchor_y*))
-		(.-> *current_buffer* (:paste (to-lower text)) (:push_undo (list :mark mark)))
+		(defq text (to-lower (. *current_buffer* :cut *anchor_x* *anchor_y*)))
+		(.-> *current_buffer* (:paste text) (:push_undo (list :mark mark)))
 		(refresh)))
 
 (defun action-to-upper ()
@@ -307,44 +294,40 @@
 		(. *current_buffer* :push_undo
 			(list :mark (defq mark (. *current_buffer* :next_mark)))
 			(list :cursor *cursor_x* *cursor_y*))
-		(defq text (. *current_buffer* :cut *anchor_x* *anchor_y*))
-		(.-> *current_buffer* (:paste (to-upper text)) (:push_undo (list :mark mark)))
+		(defq text (to-upper (. *current_buffer* :cut *anchor_x* *anchor_y*)))
+		(.-> *current_buffer* (:paste text) (:push_undo (list :mark mark)))
 		(refresh)))
 
 (defun action-ordered ()
 	(when (selection?)
-		(bind '(sy sy1) (line-selection))
-		(setq *anchor_x* 0 *anchor_y* sy)
+		(bind '(y y1) (line-selection))
+		(setq *anchor_x* 0 *anchor_y* y)
 		(.-> *current_buffer*
 			(:push_undo
 				(list :mark (defq mark (. *current_buffer* :next_mark)))
 				(list :cursor *cursor_x* *cursor_y*))
-			(:set_cursor 0 sy1))
+			(:set_cursor 0 y1))
 		(defq text (cat (join
-			(sort cmp (split (. *current_buffer* :cut 0 sy) (ascii-char +char_lf)))
+			(sort cmp (split (. *current_buffer* :cut 0 y) (ascii-char +char_lf)))
 			(ascii-char +char_lf)) (ascii-char +char_lf)))
-		(.-> *current_buffer*
-			(:paste text)
-			(:push_undo (list :mark mark)))
+		(.-> *current_buffer* (:paste text) (:push_undo (list :mark mark)))
 		(create-selection) (refresh)))
 
 (defun action-ordered-unique ()
 	(when (selection?)
-		(bind '(sy sy1) (line-selection))
-		(setq *anchor_x* 0 *anchor_y* sy)
+		(bind '(y y1) (line-selection))
+		(setq *anchor_x* 0 *anchor_y* y)
 		(.-> *current_buffer*
 			(:push_undo
 				(list :mark (defq mark (. *current_buffer* :next_mark)))
 				(list :cursor *cursor_x* *cursor_y*))
-			(:set_cursor 0 sy1))
+			(:set_cursor 0 y1))
 		(defq text (cat (join
 				(reduce (# (if (or (<= (length %0) 0)
-									(not (eql (elem -2 %0) %1))) (push %0 %1) %0))
-				(sort cmp (split (. *current_buffer* :cut 0 sy) (ascii-char +char_lf)))
+								(not (eql (elem -2 %0) %1))) (push %0 %1) %0))
+				(sort cmp (split (. *current_buffer* :cut 0 y) (ascii-char +char_lf)))
 				(list)) (ascii-char +char_lf)) (ascii-char +char_lf)))
-		(.-> *current_buffer*
-			(:paste text)
-			(:push_undo (list :mark mark)))
+		(.-> *current_buffer* (:paste text) (:push_undo (list :mark mark)))
 		(create-selection) (refresh)))
 
 (defq

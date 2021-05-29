@@ -16,7 +16,7 @@
 	(enum find_down find_up replace replace_all))
 
 (defq *current_file* nil *selected_file_node* nil *selected_open_node* nil
-	*vdu_width* 80 *vdu_height* 40 *meta_map* (xmap) *underlay* (list)
+	*vdu_width* 80 *vdu_height* 40 *meta_map* (xmap) *underlay* (list) *open_files* (list)
 	+vdu_min_width 32 +vdu_min_height 16 +vdu_max_width 100 +vdu_max_height 46
 	+selected (apply nums (map (lambda (_)
 		(const (<< (canvas-from-argb32 +argb_grey6 15) 48))) (str-alloc 8192)))
@@ -172,7 +172,10 @@
 	(unless (. *meta_map* :find file)
 		(defq mode (if (ends-with ".md" file) t nil))
 		(. *meta_map* :insert file (list 0 0 0 0 0 0 nil (defq buffer (Buffer mode))))
-		(if file (. buffer :file_load file)))
+		(when file
+			(. buffer :file_load file)
+			(unless (find file *open_files*)
+				(push *open_files* file))))
 	(bind '(x y ax ay sx sy ss buffer) (. *meta_map* :find file))
 	(setq *cursor_x* x *cursor_y* y *anchor_x* ax *anchor_y* ay *shift_select* ss
 		*current_buffer* buffer *current_file* file)
@@ -195,9 +198,25 @@
 	;load up the file tree and a blank Buffer
 	(defq all_src_files (sort cmp (all-src-files ".")))
 	(each (# (. *file_tree* :add_route %0)) (all-dirs all_src_files))
-	(each (# (. *file_tree* :add_route %0)) all_src_files)
+	(each (# (. *file_tree* :add_route %0)) all_src_files))
+
+(defun populate-open-tree ()
+	;load user open files
+	(when (defq stream (file-stream (cat *env_home* "editor_open_files")))
+		(each-line (lambda (file)
+			(unless (find file *open_files*)
+				(push *open_files* file))) stream)
+		(sort cmp *open_files*)
+		(each (# (. *open_tree* :add_route %0)) (all-dirs *open_files*))
+		(each (# (populate-vdu %0) (. *open_tree* :add_route %0)) *open_files*))
 	(populate-vdu nil)
 	(select-node nil))
+
+(defun save-open-tree ()
+	;save user open files
+	(when (defq stream (file-stream (cat *env_home* "editor_open_files") +file_open_write))
+		(each (lambda (file)
+			(write-line stream file)) (sort cmp *open_files*))))
 
 (defun window-resize (w h)
 	;layout the window and size the vdu to fit
@@ -249,6 +268,7 @@
 	(defq *cursor_x* 0 *cursor_y* 0 *anchor_x* 0 *anchor_y* 0 *scroll_x* 0 *scroll_y* 0
 		*shift_select* nil *current_buffer* nil *running* t mouse_state :u)
 	(populate-file-tree)
+	(populate-open-tree)
 	(bind '(x y w h) (apply view-locate (.-> *window* (:connect +event_layout) :pref_size)))
 	(gui-add (. *window* :change x y w h))
 	(refresh)
@@ -292,7 +312,8 @@
 				;key event
 				(defq key (getf *msg* +ev_msg_key_key) mod (getf *msg* +ev_msg_key_mod))
 				(cond
-					((/= 0 (logand mod (const (+ +ev_key_mod_control +ev_key_mod_command))))
+					((/= 0 (logand mod (const
+							(+ +ev_key_mod_control +ev_key_mod_option +ev_key_mod_command))))
 						;call bound control/command key action
 						(if (defq action (. key_map_control :find key)) (action)))
 					((/= 0 (logand mod +ev_key_mod_shift))
@@ -313,4 +334,5 @@
 		(. *meta_map* :insert *current_file*
 			(list *cursor_x* *cursor_y* *anchor_x* *anchor_y*
 				*scroll_x* *scroll_y* *shift_select* *current_buffer*)))
-	(. *window* :hide))
+	(. *window* :hide)
+	(save-open-tree))
