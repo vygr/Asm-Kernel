@@ -185,7 +185,6 @@
 
 (defun populate-vdu (file)
 	;load up the vdu widget from this file
-	;must create a fresh buffer if not seen this before !
 	(populate-file file 0 0 0 0 0 0 nil)
 	(bind '(x y ax ay sx sy ss buffer) (. *meta_map* :find file))
 	(setq *cursor_x* x *cursor_y* y *anchor_x* ax *anchor_y* ay *shift_select* ss
@@ -203,7 +202,7 @@
 			(push dirs dir) dirs)) files (list)))
 
 (defun populate-file-tree ()
-	;load up the file tree and a blank Buffer
+	;load up the file tree
 	(defq all_src_files (sort cmp (all-src-files ".")))
 	(each (# (. *file_tree* :add_route %0)) (all-dirs all_src_files))
 	(each (# (. *file_tree* :add_route %0)) all_src_files))
@@ -216,7 +215,7 @@
 	(each (# (populate-vdu %0) (. *open_tree* :add_route %0)) *open_files*))
 
 (defun load-open-files ()
-	;load user open files
+	;load users open file tree
 	(when (defq stream (file-stream (cat *env_home* +state_filename)))
 		(each-line (lambda (line)
 				(bind '(form _) (read (string-stream line) +char_space))
@@ -225,7 +224,7 @@
 			stream)))
 
 (defun save-open-files ()
-	;save user open files
+	;save users open file tree
 	(when (defq stream (file-stream (cat *env_home* +state_filename) +file_open_write))
 		(each (lambda (file)
 				(write-line stream (str (list file (slice 0 -2 (. *meta_map* :find file))))))
