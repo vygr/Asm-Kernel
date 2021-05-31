@@ -364,6 +364,15 @@
 				(. *current_buffer* :set_cursor x y)
 				(refresh)))))
 
+(defun action-set-find-text ()
+	(if (selection?)
+		(when (> (length (defq text
+				(split (. *current_buffer* :copy *anchor_x* *anchor_y*)
+					(ascii-char +char_lf)))) 0)
+			(setq text (elem 0 text))
+			(set *find_text* :clear_text text :cursor (length text))
+			(.-> *find_text* :layout :dirty))))
+
 (defun action-replace ()
 	(unless (or (eql (defq pattern (get :clear_text *find_text*)) "")
 				(eql (defq replace (get :clear_text *replace_text*)) pattern))
@@ -502,8 +511,7 @@ key_map_control (xmap-kv
 	(ascii-code "b") action-select-block
 	(ascii-code "w") action-select-word
 	(ascii-code "l") action-select-line
-	(ascii-code "f") action-find-down
-	(ascii-code "F") action-find-up
+	(ascii-code "f") action-set-find-text
 	(ascii-code "r") action-replace
 	(ascii-code "R") action-replace-all
 	(ascii-code "z") action-undo
