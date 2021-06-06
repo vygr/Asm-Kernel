@@ -27,6 +27,12 @@ New (.?) macro.
 GUI event loop moved out to Lisp. And move the SDL event queue handling out to
 Lisp !
 
+GUI_SERVICE event->action map.
+
+Add action-comment-block and action-uncomment-block axctions to the Editor.
+
+Lazy colouring of buffers on state restore.
+
 ------
 
 VP and CScript optimizers improved for clarity and extra cases.
