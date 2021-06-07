@@ -71,6 +71,15 @@
 	(. *current_buffer* :insert (char key))
 	(clear-selection) (refresh))
 
+(defun action-home ()
+	(. *current_buffer* :set_cursor 0 *cursor_y*)
+	(clear-selection) (refresh))
+
+(defun action-end ()
+	(bind '(x y) (. *current_buffer* :constrain +max_int *cursor_y*))
+	(. *current_buffer* :set_cursor x y)
+	(clear-selection) (refresh))
+
 (defun action-left ()
 	(. *current_buffer* :left)
 	(clear-selection) (refresh))
@@ -96,6 +105,19 @@
 	(when (bind '(x y) (. *current_buffer* :right_bracket))
 		(. *current_buffer* :set_cursor x y)
 		(clear-selection) (refresh)))
+
+(defun action-home-select ()
+	(unless *shift_select*
+		(setq *anchor_x* *cursor_x* *anchor_y* *cursor_y* *shift_select* t))
+	(. *current_buffer* :set_cursor 0 *cursor_y*)
+	(refresh))
+
+(defun action-end-select ()
+	(unless *shift_select*
+		(setq *anchor_x* *cursor_x* *anchor_y* *cursor_y* *shift_select* t))
+	(bind '(x y) (. *current_buffer* :constrain +max_int *cursor_y*))
+	(. *current_buffer* :set_cursor x y)
+	(refresh))
 
 (defun action-left-select ()
 	(unless *shift_select*
@@ -509,8 +531,26 @@
 		(. buffer :set_cursor x y))
 	(refresh))
 
+(defun action-macro-record ()
+	(setq *macro_record* (not *macro_record*))
+	(cond
+		(*macro_record*
+			(radio-select macro_toolbar 1)
+			(clear *macro_actions*))
+		(t  (radio-select macro_toolbar -1))))
+
+(defun action-macro-playback ()
+	(each (lambda ((action &rest params))
+			(apply action params)
+			(bind '(x y) (. *current_buffer* :get_cursor))
+			(setq *cursor_x* x *cursor_y* y))
+		*macro_actions*)
+	(clear-selection) (refresh))
+
 (defq
 event_map (xmap-kv
+	+event_macro_record action-macro-record
+	+event_macro_playback action-macro-playback
 	+event_comment action-comment-block
 	+event_uncomment action-uncomment-block
 	+event_close action-close
@@ -556,6 +596,8 @@ key_map (xmap-kv
 	0x4000004f action-right
 	0x40000052 action-up
 	0x40000051 action-down
+	0x4000004A action-home
+	0x4000004D action-end
 	+char_lf action-break
 	+char_cr action-break
 	+char_backspace action-backspace
@@ -567,6 +609,8 @@ key_map_shift (xmap-kv
 	0x4000004f action-right-select
 	0x40000052 action-up-select
 	0x40000051 action-down-select
+	0x4000004A action-home-select
+	0x4000004D action-end-select
 	+char_tab action-left-tab)
 
 key_map_control (xmap-kv
@@ -602,10 +646,24 @@ key_map_control (xmap-kv
 	(ascii-code "u") action-to-upper
 	(ascii-code "U") action-to-lower
 	(ascii-code "o") action-ordered
-	(ascii-code "O") action-ordered-unique))
+	(ascii-code "O") action-ordered-unique)
+
+recorded_list (list
+	action-home action-end action-home-select action-end-select
+	action-backspace action-break action-comment-block action-copy action-cut
+	action-cut-block action-cut-line action-cut-paragraph action-cut-word
+	action-delete action-down action-down-select action-find-down action-find-up
+	action-insert action-left action-left-bracket action-left-select
+	action-left-tab action-ordered action-ordered-unique action-paste action-redo
+	action-reflow action-replace action-replace-all action-rewind action-right
+	action-right-bracket action-right-select action-right-tab action-select-all
+	action-select-block action-select-line action-select-paragraph
+	action-select-word action-set-find-text action-tab action-to-lower
+	action-to-upper action-trim action-uncomment-block action-undo action-up
+	action-up-select action-whole-words))
 
 ;module
 (export (penv)
-	event_map key_map key_map_shift key_map_control
+	event_map key_map key_map_shift key_map_control recorded_list
 	action-insert action-select-word action-select-line action-select-paragraph)
 (env-pop)
