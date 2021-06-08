@@ -2,7 +2,10 @@
 (env-push)
 
 (defmacro not-whole-word-char? (_)
-	`(find ,_ " (){}[]"))
+	`(find ,_ +not_whole_chars))
+
+(defun empty-line? (line)
+	(every (# (eql " " %0)) line))
 
 (defun radio-select (toolbar idx)
 	(each (lambda (button)
@@ -44,10 +47,10 @@
 
 (defun select-paragraph ()
 	(defq y (some! *cursor_y* 0 nil
-				(# (if (every (# (eql " " %1)) %0) (inc _)))
+				(# (if (empty-line? %0) (inc _)))
 			(list (. *current_buffer* :get_text_lines)))
 		y1 (some! *cursor_y* (bind '(w h) (. *current_buffer* :get_size)) nil
-				(# (if (every (# (eql " " %1)) %0) _))
+				(# (if (empty-line? %0) _))
 			(list (. *current_buffer* :get_text_lines))))
 	(unless y (setq y 0))
 	(unless y1 (setq y1 h))
@@ -61,9 +64,9 @@
 	(. *current_buffer* :redo)
 	(clear-selection) (refresh))
 
-(defun action-insert (key)
+(defun action-insert (string)
 	(. *current_buffer* :cut *anchor_x* *anchor_y*)
-	(. *current_buffer* :insert (char key))
+	(. *current_buffer* :insert string)
 	(clear-selection) (refresh))
 
 (defun action-home ()
@@ -76,18 +79,32 @@
 	(clear-selection) (refresh))
 
 (defun action-left ()
-	(. *current_buffer* :left)
+	(cond
+		((selection?)
+			(bind '(sx sy sx1 sy1) (sort-selection))
+			(. *current_buffer* :set_cursor sx sy))
+		(t  (. *current_buffer* :left)))
 	(clear-selection) (refresh))
 
 (defun action-right ()
-	(. *current_buffer* :right)
+	(cond
+		((selection?)
+			(bind '(sx sy sx1 sy1) (sort-selection))
+			(. *current_buffer* :set_cursor sx1 sy1))
+		(t  (. *current_buffer* :right)))
 	(clear-selection) (refresh))
 
 (defun action-up ()
+	(when (selection?)
+		(bind '(sx sy sx1 sy1) (sort-selection))
+		(. *current_buffer* :set_cursor sx sy))
 	(. *current_buffer* :up)
 	(clear-selection) (refresh))
 
 (defun action-down ()
+	(when (selection?)
+		(bind '(sx sy sx1 sy1) (sort-selection))
+		(. *current_buffer* :set_cursor sx1 sy1))
 	(. *current_buffer* :down)
 	(clear-selection) (refresh))
 
@@ -219,13 +236,13 @@
 		(undoable
 			;trim front
 			(defq y (some! 0 h nil
-					(# (unless (= (length %0) 0) _))
+					(# (unless (empty-line? %0) _))
 				(list (. buffer :get_text_lines))))
 			(unless y (setq y h))
 			(.-> buffer (:set_cursor 0 y) (:cut 0 0))
 			;trim end
 			(defq y (some! (bind '(w h) (. buffer :get_size)) 0 nil
-					(# (unless (= (length %0) 0) (inc _)))
+					(# (unless (empty-line? %0) (inc _)))
 				(list (. buffer :get_text_lines))))
 			(unless y (setq y 0))
 			(.-> buffer (:set_cursor 0 y) (:cut 0 h))
@@ -536,13 +553,14 @@
 	(clear-selection) (refresh))
 
 (defun action-macro-playback ()
-	(undoable
-		(each (lambda ((action &rest params))
-				(apply action params)
-				(bind '(x y) (. buffer :get_cursor))
-				(setq *cursor_x* x *cursor_y* y))
-			*macro_actions*))
-	(clear-selection) (refresh))
+	(when (> (length *macro_actions*) 0)
+		(undoable
+			(each (lambda ((action &rest params))
+					(apply action params)
+					(bind '(x y) (. buffer :get_cursor))
+					(setq *cursor_x* x *cursor_y* y))
+				*macro_actions*))
+		(clear-selection) (refresh)))
 
 (defq
 event_map (xmap-kv
@@ -664,5 +682,6 @@ recorded_actions_list (list
 ;module
 (export (penv)
 	event_map key_map key_map_shift key_map_control recorded_actions_list
-	action-insert action-select-word action-select-line action-select-paragraph)
+	action-insert action-select-word action-select-line action-select-paragraph
+	select-word)
 (env-pop)
