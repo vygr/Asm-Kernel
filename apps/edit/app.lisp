@@ -23,7 +23,6 @@
 	(enum replace replace_all)
 	(enum macro_playback macro_record))
 
-
 (enums +select 0
 	(enum main tip))
 
@@ -38,7 +37,7 @@
 		(const (<< (canvas-from-argb32 +argb_grey6 15) 48))) (str-alloc 8192)))
 	+not_selected (nums-sub +selected +selected)
 	+bracket_char (nums 0x7f) +state_filename "editor_open_files"
-	+tip_time 1000000 tip_id +max_long tip nil +not_whole_chars " .,'`(){}[]/"
+	+tip_time 1000000 tip_id +max_long tip_window nil +not_whole_chars " .,;'`(){}[]/"
 	select (list (task-mailbox) (mail-alloc-mbox)))
 
 (ui-window *window* (:color +argb_grey1)
@@ -206,14 +205,15 @@
 			(list x y ax ay sx sy ss (defq buffer (Buffer mode *syntax*))))
 		(when file
 			(. buffer :file_load file)
+			(unless (find file *open_files*) (push *open_files* file))
+			;populate dictionary with this files words
 			(each (lambda (line)
 					(defq words (split line +not_whole_chars))
 					(each (lambda (word)
-							(if (>= (length word) +min_word_size) (. all_words :insert_word word)))
+							(if (>= (length word) +min_word_size)
+								(. all_words :insert_word word)))
 						words))
-				(. buffer :get_text_lines))
-			(unless (find file *open_files*)
-				(push *open_files* file)))))
+				(. buffer :get_text_lines)))))
 
 (defun populate-vdu (file)
 	;load up the vdu widget from this file
@@ -325,8 +325,8 @@
 		'("replace" "replace all")))
 
 (defun clear-tip ()
-	(if tip (gui-sub tip))
-	(setq tip nil tip_id +max_long)
+	(if tip_window (gui-sub tip_window))
+	(setq tip_window nil tip_id +max_long)
 	(mail-timeout (elem +select_tip select) 0))
 
 (defun clear-matches ()
@@ -342,10 +342,10 @@
 	(apply action params))
 
 (defun show-matches ()
+	(clear-matches)
 	(bind '(*cursor_x* *cursor_y*) (. *current_buffer* :get_cursor))
 	(bind '(x x1) (select-word))
 	(when (>= (- x1 x) +min_word_size)
-		(clear-matches)
 		(defq match_words (. all_words :find_matches
 			(slice x x1 (. *current_buffer* :get_text_line *cursor_y*))))
 		(when (> (length match_words) 0)
@@ -456,9 +456,9 @@
 									((or (= key +char_lf) (= key +char_cr))
 										;choose a match
 										(defq word (get :text (elem match_index (. match_flow :children))))
+										(clear-matches)
 										(dispatch-action action-select-word)
-										(dispatch-action action-insert (cat word " "))
-										(clear-matches))
+										(dispatch-action action-insert word))
 									((select-match (if (= key 0x40000052) -1 1)))))
 							((/= 0 (logand mod (const
 									(+ +ev_key_mod_control +ev_key_mod_option +ev_key_mod_command))))
@@ -477,8 +477,8 @@
 										(show-matches))))
 							((defq action (. key_map :find key))
 								;call bound key action
-								(dispatch-action action)
-								(clear-matches))
+								(clear-matches)
+								(dispatch-action action))
 							((<= +char_space key +char_tilda)
 								;insert the char
 								(dispatch-action action-insert (char key))
@@ -500,11 +500,11 @@
 			((= idx +select_tip)
 				;tip timeout mail
 				(when (defq tip_text (def? :tip_text (. *window* :find_id tip_id)))
-					(def (setq tip (Label)) :text tip_text :color +argb_white
+					(def (setq tip_window (Label)) :text tip_text :color +argb_white
 						:font *env_tip_font* :border 0 :flow_flags 0)
-					(. tip :set_flags 0 +view_flag_solid)
-					(bind '(x y w h) (apply view-locate (push (. tip :pref_size) :bottom)))
-					(gui-add-front (. tip :change x y w h))))))
+					(. tip_window :set_flags 0 +view_flag_solid)
+					(bind '(x y w h) (apply view-locate (push (. tip_window :pref_size) :bottom)))
+					(gui-add-front (. tip_window :change x y w h))))))
 	(each mail-free-mbox (slice 1 -1 select))
 	(clear-tip) (clear-matches)
 	(gui-sub *window*)
