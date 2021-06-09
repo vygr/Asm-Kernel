@@ -64,16 +64,16 @@
 ; actions
 ;;;;;;;;;
 
-(import "apps/edit/undo.inc")
-(import "apps/edit/cursor.inc")
-(import "apps/edit/block.inc")
-(import "apps/edit/edit.inc")
-(import "apps/edit/file.inc")
-(import "apps/edit/select.inc")
-(import "apps/edit/clipboard.inc")
-(import "apps/edit/search.inc")
-(import "apps/edit/macros.inc")
-(import "apps/edit/ui.inc")
+(import "./undo.inc")
+(import "./cursor.inc")
+(import "./block.inc")
+(import "./edit.inc")
+(import "./file.inc")
+(import "./select.inc")
+(import "./clipboard.inc")
+(import "./search.inc")
+(import "./macros.inc")
+(import "./ui.inc")
 
 (defq
 event_map (xmap-kv
@@ -90,6 +90,7 @@ event_map (xmap-kv
 	+event_new action-new
 	+event_next action-next-buffer
 	+event_prev action-prev-buffer
+	+event_scratch action-scratch-buffer
 	+event_find_down action-find-down
 	+event_find_up action-find-up
 	+event_whole_words action-whole-words
@@ -196,5 +197,5 @@ recorded_actions_list (list
 (export (penv)
 	event_map key_map key_map_shift key_map_control recorded_actions_list
 	action-insert action-select-word action-select-line action-select-paragraph
-	select-word)
+	action-save-all select-word)
 (env-pop)
