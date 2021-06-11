@@ -30,7 +30,7 @@
 	*vdu_width* 80 *vdu_height* 40 *meta_map* (xmap) *underlay* (list)
 	*open_files* (list) *syntax* (Syntax) *whole_words* nil
 	*macro_record* nil *macro_actions* (list)
-	+min_word_size 3 +max_matches 20 dictionary (Dictionary 307)
+	+min_word_size 3 +max_matches 20 dictionary (Dictionary 1021)
 	match_window nil match_flow nil match_index -1
 	+vdu_min_width 80 +vdu_min_height 40 +vdu_max_width 100 +vdu_max_height 46
 	+selected (apply nums (map (lambda (_)
@@ -199,6 +199,7 @@
 
 (defun populate-dictionary (line)
 	;populate dictionary with this lines words
+	(task-sleep 0)
 	(each (lambda (word)
 			(if (>= (length word) +min_word_size)
 				(. dictionary :insert_word word)))
@@ -207,7 +208,8 @@
 (defun populate-file (file x y ax ay sx sy ss)
 	;create new file buffer
 	(unless (. *meta_map* :find file)
-		(defq mode (if (ends-with ".md" file) t nil))
+		(defq mode (if (or (ends-with ".md" file)
+						   (ends-with ".txt" file)) t nil))
 		(. *meta_map* :insert file
 			(list x y ax ay sx sy ss (defq buffer (Buffer mode *syntax*))))
 		(when file
@@ -252,7 +254,7 @@
 		(each-line (lambda (line)
 				(bind '(form _) (read (string-stream line) +char_space))
 				(bind '(file (x y ax ay sx sy ss)) form)
-				(populate-file file x y ax ay sx sy ss))
+				(if (/= (age file) 0) (populate-file file x y ax ay sx sy ss)))
 			stream)))
 
 (defun save-open-files ()
@@ -379,6 +381,7 @@
 	(each (lambda ((key val)) (. dictionary :insert_word (str key)))
 		(tolist (get :keywords *syntax* )))
 	(each-line populate-dictionary (file-stream "class/lisp/boot.inc"))
+	;(each-line populate-dictionary (file-stream "lib/text/english.txt"))
 	(defq *cursor_x* 0 *cursor_y* 0 *anchor_x* 0 *anchor_y* 0 *scroll_x* 0 *scroll_y* 0
 		*shift_select* nil *current_buffer* nil *running* t mouse_state :u)
 	(load-open-files)
@@ -500,7 +503,8 @@
 						*scroll_x* *scroll_y* *shift_select* *current_buffer*)))
 			((= idx +select_tip)
 				;tip timeout mail
-				(when (defq tip_text (def? :tip_text (. *window* :find_id tip_id)))
+				(when (and (defq tip (. *window* :find_id tip_id))
+						(defq tip_text (def? :tip_text tip)))
 					(def (setq tip_window (Label)) :text tip_text :color +argb_white
 						:font *env_tip_font* :border 0 :flow_flags 0)
 					(. tip_window :set_flags 0 +view_flag_solid)
