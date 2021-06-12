@@ -48,6 +48,12 @@
 (. buffer :break) -> buffer
 ```
 
+### buffer :clear_undo
+
+```code
+(. buffer :clear_undo) -> buffer
+```
+
 ### buffer :constrain
 
 ```code
@@ -100,6 +106,12 @@
 
 ```code
 (. buffer :get_cursor) -> (x y)
+```
+
+### buffer :get_modified
+
+```code
+(. buffer :get_modified) -> t | nil
 ```
 
 ### buffer :get_size
@@ -1257,7 +1269,7 @@
 ### Pipe
 
 ```code
-(Pipe cmds &optional flag) -> pipe | nil
+(Pipe cmds &optional user_select) -> pipe | nil
 ```
 
 ### Progress
