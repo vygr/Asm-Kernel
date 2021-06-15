@@ -1,16 +1,14 @@
 (import "sys/lisp.inc")
 (import "class/lisp.inc")
+(import "gui/lisp.inc")
 (import "lib/math/math.inc")
 
 ;quick profiling switch
 (if t   ;t for profiling
 	(import "lib/debug/profile.inc")
 	(defun profile-report (&rest _)))
-
-(import "gui/lisp.inc")
-
 ;quick debug switch
-(when nil   ;t for debug
+(if nil   ;t for debug
 	(import "lib/debug/debug.inc"))
 
 (enums +dlist 0
@@ -39,30 +37,30 @@
 	(+ (logand 0xffffff _) 0x60000000))
 
 (defq +canvas_width 1024 +canvas_height 768 +min_width 320 +min_height 240 +eps 0.25 +tol 3.0
-	radiuss (map i2f '(2 6 12)) *stroke_radius* (elem 0 radiuss)
-	palette (list +argb_black +argb_white +argb_red +argb_green +argb_blue +argb_cyan +argb_yellow +argb_magenta)
-	palette (cat palette (map trans palette)) *undo_stack* (list) *redo_stack* (list)
-	*stroke_col* (elem 0 palette) *stroke_mode* +event_pen *commited_polygons* (list) overlay_paths (list)
-	picker_mbox nil *picker_mode* nil *running* t
-	select (list (task-mailbox) (mail-alloc-mbox) (mail-alloc-mbox) (mail-alloc-mbox))
+	*radiuss* (map i2f '(2 6 12)) *stroke_radius* (elem 0 *radiuss*)
+	*palette* (list +argb_black +argb_white +argb_red +argb_green +argb_blue +argb_cyan +argb_yellow +argb_magenta)
+	*palette* (cat *palette* (map trans *palette*)) *undo_stack* (list) *redo_stack* (list)
+	*stroke_col* (elem 0 *palette*) *stroke_mode* +event_pen *commited_polygons* (list) overlay_paths (list)
+	*picker_mbox* nil *picker_mode* nil *running* t
+	select (alloc-select +select_size)
 	rate (/ 1000000 60) +layer_all (+ +layer_commited +layer_overlay))
 
 (ui-window *window* ()
 	(ui-title-bar _ "Whiteboard" (0xea19 0xea1b 0xea1a) +event_close)
 	(ui-flow _ (:flow_flags +flow_right_fill)
-		(ui-tool-bar main_toolbar ()
+		(ui-tool-bar *main_toolbar* ()
 			(ui-buttons (0xea07 0xe9e9 0xe970 0xe9fe 0xe99d) +event_save))
-		(ui-tool-bar style_toolbar ()
+		(ui-tool-bar *style_toolbar* ()
 			(ui-buttons (0xe976 0xe9a3 0xe9d4 0xe9f0) +event_grid))
-		(ui-tool-bar radius_toolbar ()
+		(ui-tool-bar *radius_toolbar* ()
 			(ui-buttons (0xe979 0xe97d 0xe97b) +event_radius1))
-		(ui-tool-bar mode_toolbar ()
+		(ui-tool-bar *mode_toolbar* ()
 			(ui-buttons (0xe9ec 0xe9d8 0xe917 0xea20 0xe9f6 0xe94b 0xe960 0xe95f) +event_pen)))
-	(ui-tool-bar ink_toolbar (:font *env_medium_toolbar_font* :color (const *env_toolbar2_col*))
+	(ui-tool-bar *ink_toolbar* (:font *env_medium_toolbar_font* :color (const *env_toolbar2_col*))
 		(each (lambda (col)
 			(. (ui-button __ (:ink_color col :text
 				(if (< _ 8) (const (num-to-utf8 0xe982)) (const (num-to-utf8 0xea04))))) :connect
-					(+ _ +event_black))) palette))
+					(+ _ +event_black))) *palette*))
 	(ui-scroll *image_scroll* (logior +scroll_flag_vertical +scroll_flag_horizontal)
 			(:min_width +canvas_width :min_height +canvas_height)
 		(ui-backdrop mybackdrop (:color 0xffF8F8FF :ink_color 0xffADD8E6)
@@ -150,17 +148,13 @@
 
 (defun tooltips ()
 	(def *window* :tip_mbox (elem +select_tip select))
-	(each (# (def %0 :tip_text %1))
-		(. main_toolbar :children)
+	(each (# (def %0 :tip_text %1)) (. *main_toolbar* :children)
 		'("save" "open" "clear" "undo" "redo"))
-	(each (# (def %0 :tip_text %1))
-		(. style_toolbar :children)
+	(each (# (def %0 :tip_text %1)) (. *style_toolbar* :children)
 		'("plain" "grid" "lines" "axis"))
-	(each (# (def %0 :tip_text %1))
-		(. radius_toolbar :children)
+	(each (# (def %0 :tip_text %1)) (. *radius_toolbar* :children)
 		'("small" "medium" "large"))
-	(each (# (def %0 :tip_text %1))
-		(. mode_toolbar :children)
+	(each (# (def %0 :tip_text %1)) (. *mode_toolbar* :children)
 		'("pen" "line" "arrow" "double arrow" "rect"
 		"circle" "filled rect" "filled circle")))
 
@@ -173,17 +167,17 @@
 	(. commited_canvas :set_canvas_flags +canvas_flag_antialias)
 	(. overlay_canvas :set_canvas_flags +canvas_flag_antialias)
 	(. mybackdrop :set_size +canvas_width +canvas_height)
-	(radio-select ink_toolbar 0)
-	(radio-select mode_toolbar 0)
-	(radio-select radius_toolbar 0)
-	(radio-select style_toolbar 0)
+	(radio-select *ink_toolbar* 0)
+	(radio-select *mode_toolbar* 0)
+	(radio-select *radius_toolbar* 0)
+	(radio-select *style_toolbar* 0)
 	(tooltips)
 	(bind '(x y w h) (apply view-locate (. *window* :pref_size)))
 	(gui-add-front (. *window* :change x y w h))
 	(def *image_scroll* :min_width +min_width :min_height +min_height)
 
 	;main event loop
-	(defq last_state :u last_point nil last_mid_point nil id t)
+	(defq last_state :u last_point nil last_mid_point nil *id* t)
 	(mail-timeout (elem +select_timer select) rate 0)
 	(while *running*
 		(defq *msg* (mail-read (elem (defq idx (mail-select select)) select)))
@@ -191,10 +185,10 @@
 			((= idx +select_main)
 				;main mailbox
 				(cond
-					((defq id (getf *msg* +ev_msg_target_id) action (. event_map :find id))
+					((defq *id* (getf *msg* +ev_msg_target_id) action (. event_map :find *id*))
 						;call bound event action
 						(action))
-					((and (= id (. overlay_canvas :get_id)) (= (getf *msg* +ev_msg_type) +ev_type_mouse))
+					((and (= *id* (. overlay_canvas :get_id)) (= (getf *msg* +ev_msg_type) +ev_type_mouse))
 						;mouse event for canvas
 						(defq new_point (path (i2f (getf *msg* +ev_msg_mouse_rx))
 							(i2f (getf *msg* +ev_msg_mouse_ry))))
@@ -239,7 +233,7 @@
 										(redraw-layers +layer_all))
 									(:u ;was up last time, so we are hovering
 										t)))))
-					((and (not (Textfield? (. *window* :find_id id)))
+					((and (not (Textfield? (. *window* :find_id *id*)))
 							(= (getf *msg* +ev_msg_type) +ev_type_key)
 							(> (getf *msg* +ev_msg_key_keycode) 0))
 						;key event
@@ -265,8 +259,8 @@
 					(. view :show_tip)))
 			((= idx +select_picker)
 				;save/load picker responce
-				(mail-send picker_mbox "")
-				(setq picker_mbox nil)
+				(mail-send *picker_mbox* "")
+				(setq *picker_mbox* nil)
 				(cond
 					;closed picker
 					((eql *msg* ""))
@@ -288,7 +282,7 @@
 				(mail-timeout (elem +select_timer select) rate 0)
 				(redraw dlist))))
 	;close window
-	(each mail-free-mbox (slice 1 -1 select))
-	(if picker_mbox (mail-send picker_mbox ""))
+	(free-select select)
+	(if *picker_mbox* (mail-send *picker_mbox* ""))
 	(gui-sub *window*)
 	(profile-report "Whiteboard App"))
