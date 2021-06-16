@@ -32,6 +32,16 @@ GUI enter/exit events and general tooltips system.
 
 Whiteboard application upgraded to latest framework.
 
+New `(alloc-select)` and `(free-select)` functions. To standardise allocation
+and freeing of mailbox selection lists. The first element will allways be the
+main `(task-mailbox)`.
+
+Truncate error reports to 256 characters.
+
+Enhanced error reports, including Lisp stack frame, files and line numbers. To
+opt in to this extra tracking add `(import 'lib/debug/frames.inc)` to the top
+of your application.
+
 ------
 
 Find and replace added to the Editor app. Multiple buffers, save all buffers,
