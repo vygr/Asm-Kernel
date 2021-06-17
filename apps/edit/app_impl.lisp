@@ -19,7 +19,7 @@
 		reflow paragraph tab_left tab_right
 		block bracket_left bracket_right
 		toupper tolower ordered unique
-		comment uncomment)
+		comment)
 	(enum prev next scratch close_buffer save_all save new)
 	(enum find_down find_up whole_words)
 	(enum replace replace_all)
@@ -51,7 +51,7 @@
 				0xe909 0xe90d 0xe90a 0xe90b
 				0xe955 0xe93c 0xe93d
 				0xea36 0xea33 0xea27 0xea28
-				0xe9c4 0xe9d4) +event_undo))
+				0xe9c4) +event_undo))
 		(ui-tool-bar macro_toolbar (:color (const *env_toolbar2_col*))
 			(ui-buttons (0xe95e 0xe95f) +event_macro_playback))
 		(ui-backdrop _ (:color (const *env_toolbar_col*))))
@@ -175,7 +175,9 @@
 	(if (and (= x *anchor_x*) (= y *anchor_y*))
 		(create-brackets) (create-selection))
 	(defq lines (clear '()) start_line *scroll_y*
-		end_line (+ start_line (get :vdu_height *vdu_lines*) 1))
+		end_line (inc (min
+			(elem 1 (. *current_buffer* :get_size))
+			(+ start_line *vdu_height*))))
 	(while (< (setq start_line (inc start_line)) end_line)
 		(push lines (pad (str start_line) (const (dec +vdu_line_width)) "    ")))
 	(. *vdu_lines* :load lines 0 0 -1 -1)
@@ -277,31 +279,28 @@
 	;layout the window and size the vdu to fit
 	(setq *vdu_width* w *vdu_height* h)
 	(set *vdu* :vdu_width w :vdu_height h :min_width w :min_height h)
-	(set *vdu_underlay* :vdu_width w :vdu_height h)
-	(set *vdu_lines* :vdu_height h)
-	(bind '(x y) (. *vdu* :get_pos))
-	(bind '(w h) (. *vdu* :pref_size))
+	(set *vdu_underlay* :vdu_width w :vdu_height h :min_width w :min_height h)
+	(set *vdu_lines* :vdu_height h :min_height h)
+	(.-> *vdu* :layout :dirty)
+	(.-> *vdu_underlay* :layout :dirty)
+	(.-> *vdu_lines* :layout :dirty)
 	(set *vdu* :min_width +vdu_min_width :min_height +vdu_min_height)
 	(set *vdu_underlay* :min_width +vdu_min_width :min_height +vdu_min_height)
 	(set *vdu_lines* :min_height +vdu_min_height)
-	(. *vdu* :change x y w h)
-	(. *vdu_underlay* :change x y w h)
-	(bind '(x y w _) (. *vdu_lines* :get_bounds))
-	(. *vdu_lines* :change x y w h)
 	(set-sliders) (load-display))
 
 (defun vdu-resize (w h)
 	;size the vdu and layout the window to fit
 	(setq *vdu_width* w *vdu_height* h)
 	(set *vdu* :vdu_width w :vdu_height h :min_width w :min_height h)
-	(set *vdu_underlay* :vdu_width w :vdu_height h)
-	(set *vdu_lines* :vdu_height h)
+	(set *vdu_underlay* :vdu_width w :vdu_height h :min_width w :min_height h)
+	(set *vdu_lines* :vdu_height h :min_height h)
 	(bind '(x y w h) (apply view-fit
 		(cat (. *window* :get_pos) (. *window* :pref_size))))
+	(. *window* :change_dirty x y w h)
 	(set *vdu* :min_width +vdu_min_width :min_height +vdu_min_height)
 	(set *vdu_underlay* :min_width +vdu_min_width :min_height +vdu_min_height)
 	(set *vdu_lines* :min_height +vdu_min_height)
-	(. *window* :change_dirty x y w h)
 	(set-sliders) (load-display))
 
 (defun select-node (file)
@@ -330,7 +329,7 @@
 		(. main_toolbar :children)
 		'("undo" "redo" "rewind" "cut" "copy" "paste" "reflow" "select paragraph"
 			"outdent" "indent" "select form" "start form" "end form" "upper case"
-			"lower case" "sort" "unique" "comment" "uncomment"))
+			"lower case" "sort" "unique" "comment"))
 	(each (# (def %0 :tip_text %1))
 		(. buffer_toolbar :children)
 		'("previous" "next" "scratchpad" "close" "save all" "save" "new"))
