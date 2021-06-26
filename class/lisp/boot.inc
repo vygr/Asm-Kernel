@@ -256,18 +256,34 @@
 		((= (length _) 1) (elem 0 _))
 		(t `(if ,(elem 0 _) (and ~(slice 1 -1 _))))))
 
-(defmacro case (form &rest body)
-	; (case form [(key body)] ...)
-	(if (defq table (reduce-rev (lambda (table (keys &rest clause_body))
-			(unless (list? keys) (setq keys (list keys)))
-			(each! 0 -1 (lambda (key)
-					(push (elem 0 table) key)
-					(push (elem 1 table) (prebind (macroexpand
-						(if (= (length clause_body) 1) (elem 0 clause_body) (cat '(progn) clause_body))))))
-				(list keys)) table) body (list (list) (list)))
-			other (or (find-rev t (elem 0 table)) (find-rev :otherwise (elem 0 table))))
-		`(eval (elem (or (find-rev ,form ',(elem 0 table)) ,other) ',(elem 1 table)))
-		`(if (defq ,(defq _i (gensym)) (find-rev ,form ',(elem 0 table))) (eval (elem ,_i ',(elem 1 table))))))
+(defmacro case (_form &rest _body)
+	; (case form [(key|(key ...) body)] ...)
+	(defq _default_key nil _default_clause nil _atoms t
+		_map (reduce (lambda (_map (_keys &rest _clause_body))
+			(unless (list? _keys) (setq _keys (list _keys)))
+			(setq _clause_body (prebind (macroexpand
+				(if (= (length _clause_body) 1)
+					(elem 0 _clause_body)
+					(cat '(progn) _clause_body)))))
+			(or (eql :num (defq _clause_type (pop (type-of _clause_body))))
+				(eql :str _clause_type) (setq _atoms nil))
+			(each! 0 -1 (lambda (_key) (cond
+				((eql _key t)
+					(setq _default_key t _default_clause _clause_body))
+				(t	(push (elem 0 _map) _key)
+					(push (elem 1 _map) _clause_body)))) (list _keys)) _map)
+			_body (list (list) (list))))
+	(cond
+		(_default_key
+			(push (elem 1 _map) _default_clause)
+			(if _atoms
+				`(elem (or (find ,_form ',(elem 0 _map)) -2) ',(elem 1 _map))
+				`(eval (elem (or (find ,_form ',(elem 0 _map)) -2) ',(elem 1 _map)))))
+		(t	(if _atoms
+				`(if (defq ,(defq _i (gensym)) (find ,_form ',(elem 0 _map)))
+					(elem ,_i ',(elem 1 _map)))
+				`(if (defq ,(defq _i (gensym)) (find ,_form ',(elem 0 _map)))
+					(eval (elem ,_i ',(elem 1 _map))))))))
 
 (defmacro times (c &rest _)
 	; (times num body)
