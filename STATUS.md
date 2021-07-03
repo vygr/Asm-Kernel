@@ -29,6 +29,9 @@ More flexible `(case)`. No longer restricted to symbol only keys.
 `(eval)` of the case clause. Which makes the code produced a tight static flat
 map in that situation.
 
+`(raise)` and `(lower)` macros added to `lib/class/class.inc`. Adjusted the
+macro to allow concatenation of user values.
+
 ------
 
 Make system now uses `(abs-path)`.
