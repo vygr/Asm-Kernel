@@ -186,8 +186,7 @@ Usage: unique [options] [line] ...
 
 ```
 ## usb
- 
-```lisp
+```code
 Usage: usb [options]
 	options:
 		-h --help: this help info.
