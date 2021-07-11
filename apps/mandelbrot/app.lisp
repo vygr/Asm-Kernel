@@ -14,12 +14,11 @@
 	(enum main task reply timer))
 
 (defq canvas_width 800 canvas_height 800 canvas_scale 2 timer_rate (/ 1000000 1) id t dirty nil
-	select (alloc-select +select_size)
 	center_x (mbfp-from-fixed -0.5) center_y (mbfp-from-fixed 0.0) zoom (mbfp-from-fixed 1.0)
 	retry_timeout (if (starts-with "obj/vp64" (load-path)) 50000000 5000000)
 	jobs nil farm nil)
 
-(ui-window mywindow ()
+(ui-window *window* ()
 	(ui-title-bar _ "Mandelbrot" (0xea19) +event_close)
 	(ui-canvas canvas canvas_width canvas_height canvas_scale))
 
@@ -89,10 +88,10 @@
 		farm (Farm create destroy (* 2 (length (mail-nodes))))))
 
 (defun main ()
-	;add window
+	(defq select (alloc-select +select_size))
 	(.-> canvas (:fill +argb_black) :swap)
-	(bind '(x y w h) (apply view-locate (. mywindow :pref_size)))
-	(gui-add-front (. mywindow :change x y w h))
+	(bind '(x y w h) (apply view-locate (. *window* :pref_size)))
+	(gui-add-front (. *window* :change x y w h))
 	(reset)
 	(mail-timeout (elem +select_timer select) timer_rate 0)
 	(while id
@@ -116,7 +115,7 @@
 							zoom (mbfp-mul zoom (if (= 0 (logand (getf msg +ev_msg_mouse_buttons) 2))
 								(mbfp-from-fixed 0.5) (mbfp-from-fixed 2.0))))
 						(reset))
-					(t (. mywindow :event msg))))
+					(t (. *window* :event msg))))
 			((= idx +select_task)
 				;child launch responce
 				(defq key (getf msg +kn_msg_key) child (getf msg +kn_msg_reply_id))
@@ -144,4 +143,4 @@
 	;close window and children
 	(. farm :close)
 	(free-select select)
-	(gui-sub mywindow))
+	(gui-sub *window*))

@@ -14,11 +14,10 @@
 
 (defq vdu_width 38 vdu_height 12 text_buf nil
 	flicker_rate (/ 1000000 8) timer_rate (/ 1000000 1) max_move_time 10000000 id t
-	select (alloc-select +select_size)
 	brd "RNBQKBNRPPPPPPPP                                pppppppprnbqkbnr"
 	history (list brd) color +white start_time (pii-time) replys (list) next_seq 0)
 
-(ui-window mywindow (:color +argb_black)
+(ui-window *window* (:color +argb_black)
 	(ui-title-bar _ "Chess" (0xea19) +event_close)
 	(ui-grid chess_grid (:grid_width 8 :grid_height 8 :font (create-font "fonts/Chess.ctf" 42)
 			:border 1 :text " ")
@@ -81,9 +80,9 @@
 
 (defun main ()
 	(display-board brd)
-	(defq farm (Farm create destroy 1))
-	(bind '(x y w h) (apply view-locate (. mywindow :pref_size)))
-	(gui-add-front (. mywindow :change x y w h))
+	(defq select (alloc-select +select_size) farm (Farm create destroy 1))
+	(bind '(x y w h) (apply view-locate (. *window* :pref_size)))
+	(gui-add-front (. *window* :change x y w h))
 	(mail-timeout (elem +select_timer select) timer_rate 0)
 	(while id
 		(defq msg (mail-read (elem (defq idx (mail-select select)) select)))
@@ -94,7 +93,7 @@
 					((= (setq id (getf msg +ev_msg_target_id)) +event_close)
 						;close button
 						(setq id nil))
-					(t (. mywindow :event msg))))
+					(t (. *window* :event msg))))
 			((= idx +select_task)
 				;child launch responce
 				(defq key (getf msg +kn_msg_key) child (getf msg +kn_msg_reply_id))
@@ -132,4 +131,4 @@
 	;close window and children
 	(. farm :close)
 	(free-select select)
-	(gui-sub mywindow))
+	(gui-sub *window*))

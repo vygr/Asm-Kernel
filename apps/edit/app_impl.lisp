@@ -34,7 +34,7 @@
 	*selected_open_node* nil *meta_map* (xmap) *underlay* (list) *open_files* (list)
 	*syntax* (Syntax) *whole_words* nil *macro_record* nil *macro_actions* (list)
 	+min_word_size 3 +max_matches 20 dictionary (Dictionary 1021) +margin 2
-	match_window nil match_flow nil match_index -1 select (alloc-select +select_size)
+	match_window nil match_flow nil match_index -1
 	+selected (apply nums (map (lambda (_)
 		(const (<< (canvas-from-argb32 +argb_grey6 15) 48))) (str-alloc 8192)))
 	+not_selected (nums-sub +selected +selected) +bracket_char (nums 0x7f)
@@ -378,7 +378,8 @@
 	(catch (eval action) (progn (print _)(print) t)))
 
 (defun main ()
-	(defq edit_service (mail-declare (task-mailbox) "EDIT_SERVICE" "Edit Service 0.1"))
+	(defq select (alloc-select +select_size)
+		edit_service (mail-declare (task-mailbox) "EDIT_SERVICE" "Edit Service 0.1"))
 	;load up the base Syntax keywords and boot.inc words for matching
 	(each (lambda ((key val)) (. dictionary :insert_word (str key)))
 		(tolist (get :keywords *syntax* )))
@@ -398,110 +399,107 @@
 	(while *running*
 		(defq *msg* (mail-read (elem (defq idx (mail-select select)) select)))
 		(cond
-			((= idx +select_main)
-				;main mailbox
-				(cond
-					((defq id (getf *msg* +ev_msg_target_id) action (. event_map :find id))
-						;call bound event action
-						(dispatch-action action))
-					((and (= id (. *vdu* :get_id)) (= (getf *msg* +ev_msg_type) +ev_type_mouse))
-						;mouse event on display
-						(clear-matches)
-						(bind '(w h) (. *vdu* :char_size))
-						(defq x (getf *msg* +ev_msg_mouse_rx) y (getf *msg* +ev_msg_mouse_ry))
-						(setq x (if (>= x 0) x (- x w)) y (if (>= y 0) y (- y h)))
-						(setq x (+ *scroll_x* (/ x w)) y (+ *scroll_y* (/ y h)))
-						(cond
-							((/= (getf *msg* +ev_msg_mouse_buttons) 0)
-								;mouse button is down
-								(case mouse_state
-									(:d ;mouse drag event
-										(bind '(x y) (. *current_buffer* :constrain x y))
-										(. *current_buffer* :set_cursor x y)
-										(refresh))
-									(:u ;mouse down event
-										(bind '(x y) (. *current_buffer* :constrain x y))
-										(. *current_buffer* :set_cursor x y)
-										(setq *anchor_x* x *anchor_y* y
-											*shift_select* t mouse_state :d)
-										(refresh))))
-							(t  ;mouse button is up
-								(case mouse_state
-									(:d ;mouse up event
-										(defq click_count (getf *msg* +ev_msg_mouse_count))
-										(cond
-											((= click_count 2)
-												(dispatch-action action-select-word))
-											((= click_count 3)
-												(dispatch-action action-select-line))
-											((= click_count 4)
-												(dispatch-action action-select-paragraph)))
-										(setq mouse_state :u)
-										(refresh))
-									(:u ;mouse hover event
-										)))))
-					((and (= id (. *vdu* :get_id)) (= (getf *msg* +ev_msg_type) +ev_type_wheel))
-						;wheel event on display area
-						(clear-matches)
-						(bind '(x y ax ay sx sy ss buffer) (. *meta_map* :find *current_file*))
-						(setq sx (+ *scroll_x* (getf *msg* +ev_msg_wheel_x))
-							sy (- *scroll_y* (getf *msg* +ev_msg_wheel_y)))
-						(. *meta_map* :insert *current_file* (list x y ax ay sx sy ss buffer))
-						(set-sliders) (load-display))
-					((and (not (Textfield? (. *window* :find_id id)))
-							(= (getf *msg* +ev_msg_type) +ev_type_key)
-							(> (getf *msg* +ev_msg_key_keycode) 0))
-						;key event
-						(defq key (getf *msg* +ev_msg_key_key) mod (getf *msg* +ev_msg_key_mod))
-						(cond
-							((and match_window (or (= key 0x40000052) (= key 0x40000051)
-									(and (or (= key +char_lf) (= key +char_cr) (= key +char_space))
-										(>= match_index 0))))
-								;matches navigation and selection
-								(cond
-									((or (= key +char_lf) (= key +char_cr) (= key +char_space))
-										;choose a match
-										(defq word (get :text (elem match_index (. match_flow :children))))
-										(if (= key +char_space) (setq word (cat word " ")))
-										(clear-matches)
-										(dispatch-action action-select-word)
-										(dispatch-action action-insert word))
-									((select-match (if (= key 0x40000052) -1 1)))))
-							((/= 0 (logand mod (const
-									(+ +ev_key_mod_control +ev_key_mod_option +ev_key_mod_command))))
-								;call bound control/command key action
-								(when (defq action (. key_map_control :find key))
-									(clear-matches)
-									(dispatch-action action)))
-							((/= 0 (logand mod +ev_key_mod_shift))
-								;call bound shift key action, else insert
-								(cond
-									((defq action (. key_map_shift :find key))
-										(clear-matches)
-										(dispatch-action action))
-									((<= +char_space key +char_tilda)
-										(dispatch-action action-insert (char key))
-										(show-matches))))
-							((defq action (. key_map :find key))
-								;call bound key action
-								(clear-matches)
-								(dispatch-action action))
-							((<= +char_space key +char_tilda)
-								;insert the char
-								(dispatch-action action-insert (char key))
-								(show-matches))))
-					(t  ;gui event, plus check for tip text
-						(clear-matches)
-						(. *window* :event *msg*)))
-				;update meta data
-				(bind '(*cursor_x* *cursor_y*) (. *current_buffer* :get_cursor))
-				(. *meta_map* :insert *current_file*
-					(list *cursor_x* *cursor_y* *anchor_x* *anchor_y*
-						*scroll_x* *scroll_y* *shift_select* *current_buffer*)))
 			((= idx +select_tip)
 				;tip time mail
 				(if (defq view (. *window* :find_id (getf *msg* +mail_timeout_id)))
-					(. view :show_tip)))))
+					(. view :show_tip)))
+			((defq id (getf *msg* +ev_msg_target_id) action (. event_map :find id))
+				;call bound event action
+				(dispatch-action action))
+			((and (= id (. *vdu* :get_id)) (= (getf *msg* +ev_msg_type) +ev_type_mouse))
+				;mouse event on display
+				(clear-matches)
+				(bind '(w h) (. *vdu* :char_size))
+				(defq x (getf *msg* +ev_msg_mouse_rx) y (getf *msg* +ev_msg_mouse_ry))
+				(setq x (if (>= x 0) x (- x w)) y (if (>= y 0) y (- y h)))
+				(setq x (+ *scroll_x* (/ x w)) y (+ *scroll_y* (/ y h)))
+				(cond
+					((/= (getf *msg* +ev_msg_mouse_buttons) 0)
+						;mouse button is down
+						(case mouse_state
+							(:d ;mouse drag event
+								(bind '(x y) (. *current_buffer* :constrain x y))
+								(. *current_buffer* :set_cursor x y)
+								(refresh))
+							(:u ;mouse down event
+								(bind '(x y) (. *current_buffer* :constrain x y))
+								(. *current_buffer* :set_cursor x y)
+								(setq *anchor_x* x *anchor_y* y
+									*shift_select* t mouse_state :d)
+								(refresh))))
+					(t  ;mouse button is up
+						(case mouse_state
+							(:d ;mouse up event
+								(defq click_count (getf *msg* +ev_msg_mouse_count))
+								(cond
+									((= click_count 2)
+										(dispatch-action action-select-word))
+									((= click_count 3)
+										(dispatch-action action-select-line))
+									((= click_count 4)
+										(dispatch-action action-select-paragraph)))
+								(setq mouse_state :u)
+								(refresh))
+							(:u ;mouse hover event
+								)))))
+			((and (= id (. *vdu* :get_id)) (= (getf *msg* +ev_msg_type) +ev_type_wheel))
+				;wheel event on display area
+				(clear-matches)
+				(bind '(x y ax ay sx sy ss buffer) (. *meta_map* :find *current_file*))
+				(setq sx (+ *scroll_x* (getf *msg* +ev_msg_wheel_x))
+					sy (- *scroll_y* (getf *msg* +ev_msg_wheel_y)))
+				(. *meta_map* :insert *current_file* (list x y ax ay sx sy ss buffer))
+				(set-sliders) (load-display))
+			((and (not (Textfield? (. *window* :find_id id)))
+					(= (getf *msg* +ev_msg_type) +ev_type_key)
+					(> (getf *msg* +ev_msg_key_keycode) 0))
+				;key event
+				(defq key (getf *msg* +ev_msg_key_key) mod (getf *msg* +ev_msg_key_mod))
+				(cond
+					((and match_window (or (= key 0x40000052) (= key 0x40000051)
+							(and (or (= key +char_lf) (= key +char_cr) (= key +char_space))
+								(>= match_index 0))))
+						;matches navigation and selection
+						(cond
+							((or (= key +char_lf) (= key +char_cr) (= key +char_space))
+								;choose a match
+								(defq word (get :text (elem match_index (. match_flow :children))))
+								(if (= key +char_space) (setq word (cat word " ")))
+								(clear-matches)
+								(dispatch-action action-select-word)
+								(dispatch-action action-insert word))
+							((select-match (if (= key 0x40000052) -1 1)))))
+					((/= 0 (logand mod (const
+							(+ +ev_key_mod_control +ev_key_mod_option +ev_key_mod_command))))
+						;call bound control/command key action
+						(when (defq action (. key_map_control :find key))
+							(clear-matches)
+							(dispatch-action action)))
+					((/= 0 (logand mod +ev_key_mod_shift))
+						;call bound shift key action, else insert
+						(cond
+							((defq action (. key_map_shift :find key))
+								(clear-matches)
+								(dispatch-action action))
+							((<= +char_space key +char_tilda)
+								(dispatch-action action-insert (char key))
+								(show-matches))))
+					((defq action (. key_map :find key))
+						;call bound key action
+						(clear-matches)
+						(dispatch-action action))
+					((<= +char_space key +char_tilda)
+						;insert the char
+						(dispatch-action action-insert (char key))
+						(show-matches))))
+			(t  ;gui event, plus check for tip text
+				(clear-matches)
+				(. *window* :event *msg*)))
+		;update meta data
+		(bind '(*cursor_x* *cursor_y*) (. *current_buffer* :get_cursor))
+		(. *meta_map* :insert *current_file*
+			(list *cursor_x* *cursor_y* *anchor_x* *anchor_y*
+				*scroll_x* *scroll_y* *shift_select* *current_buffer*)))
 	(free-select select)
 	(clear-matches)
 	(gui-sub *window*)
