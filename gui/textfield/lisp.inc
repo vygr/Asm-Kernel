@@ -9,8 +9,8 @@
 
 (defclass Textfield () (Label)
 	; (Textfield) -> textfield
-	(def this :cursor 0 :anchor 0 :clear_text "" :hint_text "" :text "" :mode nil
-		:shift_select nil :state 1)
+	(def this :cursor 0 :anchor 0 :clear_text "" :hint_text "" :text ""
+		:mode nil :state 1)
 
 	(defmethod :draw (this)
 		; (. textfield :draw) -> textfield
@@ -23,7 +23,7 @@
 				(bind '(sw _) (font-glyph-bounds font (slice 0 (min anchor cursor) text)))
 				(bind '(sw1 _) (font-glyph-bounds font (slice 0 (max anchor cursor) text)))
 				(.-> this
-					(:ctx_set_color +argb_grey14)
+					(:ctx_set_color (get :hint_color this))
 					(:ctx_filled_box sw (>>> (- h th) 1) (- sw1 sw) th)))
 			(.-> this
 				(:ctx_set_color (get :ink_color this))
@@ -45,20 +45,23 @@
 
 	(defmethod :key_down (this event)
 		; (. textfield :key_down event) -> textfield
-		(raise :clear_text :cursor :anchor :shift_select :mode)
+		(raise :clear_text :cursor :anchor :mode)
 		(defq key (getf event +ev_msg_key_key) mod (getf event +ev_msg_key_mod)
 			cursor (min cursor (length clear_text)))
 		(cond
 			((/= 0 (logand mod (const (+ +ev_key_mod_control +ev_key_mod_command))))
 				;control/command key
 				(cond
+					((= key (ascii-code "a"))
+						;select all
+						(setq anchor 0 cursor (length clear_text)))
 					((= key (ascii-code "x"))
 						;cut
 						(unless (or mode (= cursor anchor))
 							(defq sx (min anchor cursor) sx1 (max anchor cursor))
 							(clipboard-put (slice sx sx1 clear_text))
 							(setq clear_text (erase clear_text sx sx1)
-								cursor sx shift_select t anchor cursor)))
+								cursor sx anchor cursor)))
 					((= key (ascii-code "c"))
 						;copy
 						(unless (or mode (= cursor anchor))
@@ -69,28 +72,24 @@
 						(when (/= cursor anchor)
 							(defq sx (min anchor cursor) sx1 (max anchor cursor))
 							(setq clear_text (erase clear_text sx sx1)
-								cursor sx shift_select t anchor cursor))
+								cursor sx anchor cursor))
 						(unless (eql (defq data (clipboard-get)) "")
 							(unless (defq lf (find (ascii-char +char_lf) data))
 								(setq lf (length data)))
 							(setq clear_text (insert clear_text cursor (slice 0 lf data))
-								cursor (+ cursor lf) shift_select t anchor cursor)))))
+								cursor (+ cursor lf) anchor cursor)))))
 			((/= 0 (logand mod +ev_key_mod_shift))
 				;shift key
 				(cond
 					((= key 0x40000050)
 						;left
-						(unless shift_select
-							(setq shift_select t anchor cursor))
 						(setq cursor (max 0 (dec cursor))))
 					((= key 0x4000004f)
 						;right
-						(unless shift_select
-							(setq shift_select t anchor cursor))
 						(setq cursor (min (length clear_text) (inc cursor))))))
 			((or (= key +char_lf) (= key +char_cr))
 				;enter action
-				(setq shift_select nil anchor cursor)
+				(setq anchor cursor)
 				(. this :emit))
 			((= key +char_backspace)
 				;backspace
@@ -101,7 +100,7 @@
 					((and (/= cursor 0) (/= (length clear_text) 0))
 						(setq clear_text (erase clear_text (dec cursor) cursor)
 							cursor (dec cursor))))
-				(setq shift_select nil anchor cursor))
+				(setq anchor cursor))
 			((= key +char_delete)
 				;delete
 				(cond
@@ -110,27 +109,27 @@
 						(setq clear_text (erase clear_text sx sx1) cursor sx))
 					((and (/= cursor (length clear_text)) (/= (length clear_text) 0))
 						(setq clear_text (erase clear_text cursor (inc cursor)))))
-				(setq shift_select nil anchor cursor))
+				(setq anchor cursor))
 			((= key 0x40000050)
 				;left
 				(if (= cursor anchor)
 					(setq cursor (max 0 (dec cursor)))
 					(setq cursor (min anchor cursor)))
-				(setq shift_select nil anchor cursor))
+				(setq anchor cursor))
 			((= key 0x4000004f)
 				;right
 				(if (= cursor anchor)
 					(setq cursor (min (length clear_text) (inc cursor)))
 					(setq cursor (max anchor cursor)))
-				(setq shift_select nil anchor cursor))
+				(setq anchor cursor))
 			((<= +char_space key +char_tilda)
 				;insert char
 				(when (/= cursor anchor)
 					(defq sx (min anchor cursor) sx1 (max anchor cursor))
 					(setq clear_text (erase clear_text sx sx1) cursor sx))
 				(setq clear_text (insert clear_text cursor (char key))
-					cursor (inc cursor) shift_select nil anchor cursor)))
-		(lower :clear_text :cursor :anchor :shift_select)
+					cursor (inc cursor) anchor cursor)))
+		(lower :clear_text :cursor :anchor)
 		(.-> this :layout :dirty_all))
 
 	(defmethod :mouse_down (this event)
