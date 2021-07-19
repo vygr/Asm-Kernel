@@ -17,7 +17,7 @@ your own syntax for your applications and things that I don't think I'm
 qualified to talk about yet.
 
 So let's start slow and work our way up to my level, basic Amoeba... the Lisp
-Gurus are going to die laughing at my attempts to cover this subject...
+Gurus are going to die laughing at my attempts to cover this subject.
 
 ## Macros are just functions
 
@@ -28,9 +28,13 @@ After your source code is read in by the `(read)` function, the resulting tree
 is scanned by the `(macroexpand)` phase of the REPL.
 
 Any symbol that is the first item in a list, that is bound within the current
-environment to a `macro` defined function rather than a `lambda`, is
-substituted for the result of calling that macro function with the parameters
-of the rest of the list.
+environment, to a `macro` defined function rather than a `lambda`, has that
+list substituted for the result of calling that macro function with the
+parameters of the rest of the list.
+
+That's a very cold explanation of what happens and we can probably sum it up by
+saying, any source that looks like a macro function call is replaced by the
+result of that macro function call before the code is actuality 'executed'.
 
 Let's look at a very simple macro.
 
@@ -106,7 +110,7 @@ not obvious. But stick with me as we proceed.
 
 It might surprise you to learn that a lot of what you take for granted as
 language constructs within ChrysaLisp are provided as macros ! They are not
-actually built in primitives, but supplied in the `boot.inc` file.
+actually built in primitives but macros, supplied in the `boot.inc` file.
 
 Take the `(when)` construct:
 
@@ -118,8 +122,8 @@ Take the `(when)` construct:
 		`(cond (,x ~_))))
 ```
 
-This replaces your use of `(when ...)` with either an `(if ..)` or `(cond ...)`
-primitive. Thus providing you with a nicer syntax to express your intent.
+This replaces your use of `(when ...)` with either an `(if ...)` or `(cond
+...)` primitive. Thus providing you with a nicer syntax to express your intent.
 
 ## Macros can do complex substitution
 
@@ -228,7 +232,7 @@ A simple use:
 ```
 
 Here we know the splitting chars string is going to be constant at run time,
-but it's convenient to express it as the concatination of a space and lf char.
+but it's convenient to express it as the concatenation of a space and lf char.
 
 ## Macros can decorate existing functions
 
@@ -239,10 +243,85 @@ A great example here is the profiling library. The library is imported with:
 ```
 
 This redefines the `(defun)` and `(defmethod)` macros to collect timing
-information. Your function and method existing functionality is not effected
+information. Your function and method existing functionality is not affected
 but supplemented with wrapper code that builds and maintains the profiling
 information.
 
 ```file
 lib/debug/profile.inc
+```
+
+Another example of wrapping code in a decorator macro is the Editor application
+`(undoable)` macro. This macro can be used to wrap any code that mutates the
+text to ensure its effects can be undone.
+
+```vdu
+(defmacro undoable (&rest _)
+	`(progn
+		(. (defq buffer *current_buffer*) :push_undo
+			(list :mark (defq mark (. buffer :next_mark)))
+			(list :cursor *cursor_x* *cursor_y*))
+		~_
+		(. buffer :push_undo (list :mark mark))))
+```
+
+And an example of the macro in use:
+
+```vdu
+(defun action-reflow ()
+	(undoable
+		(bind '(y y1) (select-paragraph))
+		(each (lambda (line)
+				(task-sleep 0)
+				(.-> buffer (:insert line) :break))
+			(. (. buffer :get_syntax) :text_flow
+				(split (.-> buffer (:set_cursor 0 y) (:cut 0 y1))
+					(const (cat " " (ascii-char +char_lf))))
+				(. buffer :get_wrap_width)))
+		(bind '(x y) (. buffer :get_cursor))
+		(bind '(x y) (. buffer :constrain x (inc y)))
+		(. buffer :set_cursor x y))
+	(clear-selection) (refresh))
+```
+
+Here the paragraph reflow action mutations can be undone in a single step.
+
+## Macros can provide type abstraction
+
+You can write source code that allows easy switching of types by using macros
+to abstract them. The Bubbles application uses this idea to allow selection
+between fixed point and real number types.
+
+Here is a section of the `apps/bubbles/app.inc` file:
+
+These macros define an interface for creating and converting to/from a 'number'
+and the actual numeric type selected.
+
+```vdu
+(cond   ;pick number format t/nil
+	(t  ;reals
+		(defmacro vec (&rest _) `(reals ~_))
+		(defmacro i2n (_) `(i2r ,_))
+		(defmacro n2i (_) `(r2i ,_))
+		(defmacro f2n (_) `(f2r ,_))
+		(defmacro n2f (_) `(r2f ,_)))
+	(t  ;fixed point
+		(defmacro vec (&rest _) `(fixeds ~_))
+		(defmacro i2n (_) `(i2f ,_))
+		(defmacro n2i (_) `(f2i ,_))
+		(defmacro f2n (_) _)
+		(defmacro n2f (_) _)))
+```
+
+These macros are then used instead of the raw types, for example in the
+lighting function:
+
+```vdu
+(defun lighting ((r g b) z)
+	;very basic attenuation
+	(defq at (/ (const (i2n box_size)) z) r (* r at) g (* g at) b (* b at))
+	(+ 0xd0000000
+		(<< (n2i (* r (const (i2n 0xff)))) 16)
+		(<< (n2i (* g (const (i2n 0xff)))) 8)
+		(n2i (* b (const (i2n 0xff))))))
 ```
